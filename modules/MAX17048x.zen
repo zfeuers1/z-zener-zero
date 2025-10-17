@@ -1,0 +1,56 @@
+"""
+MAX17048x Reference Design
+
+MAX17048X+T10 fuel gauge for Li+ battery state-of-charge monitoring via I2C.
+Simple 2-wire I2C interface with alert output.
+
+Configuration:
+- VCC: Logic power supply (typically 3.3V system rail for maintaining config)
+- VBAT (CELL pin): Battery voltage monitoring input (2.5V-5.5V)
+"""
+
+load("@stdlib/interfaces.zen", "Ground", "Gpio", "I2c", "Power")
+
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+Resistor = Module("@stdlib/generics/Resistor.zen")
+MAX17048 = Module("//components/MAX17048X+T10/MAX17048X+T10.zen")
+
+# Power and interfaces
+vcc = io("vcc", Power)  # Logic power supply (e.g., 3.3V rail)
+vbat = io("vbat", Power)  # Battery voltage input for CELL pin
+gnd = io("gnd", Ground)
+i2c = io("i2c", I2c)  # I2C interface (SCL, SDA)
+alert = io("alert", Gpio, optional=True)  # Alert output (active low)
+
+# Internal nets
+_CTG = Net("_CTG")
+_QSTRT = Net("_QSTRT")
+_ALRT = Net("_ALRT")
+
+# MAX17048 Fuel Gauge
+MAX17048(
+    name = "U_FUELGAUGE",
+    VDD = vcc.NET,  # Logic power supply
+    GND = gnd.NET,  # Ground
+    CELL = vbat.NET,  # Battery cell voltage monitoring
+    SCL = i2c.SCL,  # I2C clock
+    SDA = i2c.SDA,  # I2C data
+    n_ALRT = _ALRT,  # Alert output (active low, open-drain)
+    CTG = _CTG,  # Capacitor to ground
+    QSTRT = _QSTRT,  # Quick start pin
+)
+
+# CTG capacitor (per datasheet, typically 0.1µF-1µF)
+Capacitor(name = "C_CTG", value = "100nF", voltage = "10V", package = "0402", P1 = _CTG, P2 = gnd.NET)
+
+# QSTRT typically left floating or connected to VDD through high-value resistor
+# Leave floating for automatic quick-start on power-up
+
+# VDD bypass capacitor
+Capacitor(name = "C_VDD", value = "100nF", voltage = "10V", package = "0402", P1 = vcc.NET, P2 = gnd.NET)
+
+# Alert is open-drain output - no external pull-up needed
+# ESP32 or host MCU should enable internal pull-up on GPIO
+# External pull-up would cause parasitic drain if VCC domain differs from MCU VDD
+if alert:
+    alert = Gpio(NET = _ALRT)

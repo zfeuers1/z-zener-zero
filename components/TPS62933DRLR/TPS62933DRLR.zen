@@ -1,0 +1,37 @@
+"""
+TPS62933DRLR
+
+The TPS62933 is a high-efficiency, easy-to-use synchronous buck converter with a wide input voltage range of 3.8 V to 30 V
+
+Auto-generated using `pcb-pro search`. Do not modify.
+"""
+
+Pins = struct(
+    BST = io("BST", Net),
+    EN = io("EN", Net),
+    FB = io("FB", Net),
+    GND = io("GND", Net),
+    RT = io("RT", Net),
+    SS = io("SS", Net),
+    SW = io("SW", Net),
+    VIN = io("VIN", Net)
+)
+
+Component(
+    name = "TPS62933DRLR",
+    mpn = "TPS62933DRLR",
+    description = "The TPS62933 is a high-efficiency, easy-to-use synchronous buck converter with a wide input voltage range of 3.8 V to 30 V",
+    datasheet = File("TPS62933DRLR.pdf"),
+    symbol = Symbol(library = "TPS62933DRLR.kicad_sym"),
+    footprint = File("SOTFL50P160X60-8N.kicad_mod"),
+    pins = {
+        "BST": Pins.BST,
+        "EN": Pins.EN,
+        "FB": Pins.FB,
+        "GND": Pins.GND,
+        "RT": Pins.RT,
+        "SS": Pins.SS,
+        "SW": Pins.SW,
+        "VIN": Pins.VIN
+    },
+)

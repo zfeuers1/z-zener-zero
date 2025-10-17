@@ -1,0 +1,28 @@
+"""
+OPA344NA_250
+
+Auto-generated using `pcb-pro search`. Do not modify.
+"""
+
+Pins = struct(
+    MIN = io("MIN", Net),
+    OUT = io("OUT", Net),
+    PIN = io("PIN", Net),
+    VM = io("VM", Net),
+    VP = io("VP", Net)
+)
+
+Component(
+    name = "OPA344NA_250",
+    mpn = "OPA344NA_250",
+    datasheet = File("OPA344NA_250.pdf"),
+    symbol = Symbol(library = "OPA344NA_250.kicad_sym"),
+    footprint = File("SOT95P280X145-5N.kicad_mod"),
+    pins = {
+        "-IN": Pins.MIN,
+        "OUT": Pins.OUT,
+        "+IN": Pins.PIN,
+        "V-": Pins.VM,
+        "V+": Pins.VP
+    },
+)

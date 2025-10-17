@@ -1,0 +1,31 @@
+"""
+CSSM1210TB
+
+SWITCH SLIDE SPDT 100MA 12V
+
+Auto-generated using `pcb-pro search`. Do not modify.
+"""
+
+Pins = struct(
+    MH1 = io("MH1", Net),
+    MH2 = io("MH2", Net),
+    P1 = io("P1", Net),
+    P2 = io("P2", Net),
+    P3 = io("P3", Net)
+)
+
+Component(
+    name = "CSSM1210TB",
+    mpn = "CSSM1210TB",
+    description = "SWITCH SLIDE SPDT 100MA 12V",
+    datasheet = File("CSS-1210TB.pdf"),
+    symbol = Symbol(library = "CSS-1210TB.kicad_sym"),
+    footprint = File("CSS1210TB.kicad_mod"),
+    pins = {
+        "MH1": Pins.MH1,
+        "MH2": Pins.MH2,
+        "1": Pins.P1,
+        "2": Pins.P2,
+        "3": Pins.P3
+    },
+)

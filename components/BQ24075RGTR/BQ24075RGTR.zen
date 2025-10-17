@@ -1,0 +1,55 @@
+"""
+BQ24075RGTR
+
+USB-Friendly Li-Ion Battery Charger and Power-Path Management IC, Vout 5.5V
+
+Auto-generated using `pcb-pro search`. Do not modify.
+"""
+
+Pins = struct(
+    BAT_1 = io("BAT_1", Net),
+    BAT_2 = io("BAT_2", Net),
+    EN1 = io("EN1", Net),
+    EN2 = io("EN2", Net),
+    GND = io("GND", Net),
+    ILIM = io("ILIM", Net),
+    IN = io("IN", Net),
+    ISET = io("ISET", Net),
+    OUT_1 = io("OUT_1", Net),
+    OUT_2 = io("OUT_2", Net),
+    SYSOFF = io("SYSOFF", Net),
+    TMR = io("TMR", Net),
+    TS = io("TS", Net),
+    VSS = io("VSS", Net),
+    n_CE = io("n_CE", Net),
+    n_CHG = io("n_CHG", Net),
+    n_PGOOD = io("n_PGOOD", Net)
+)
+
+Component(
+    name = "BQ24075RGTR",
+    mpn = "BQ24075RGTR",
+    description = "USB-Friendly Li-Ion Battery Charger and Power-Path Management IC, Vout 5.5V",
+    datasheet = File("BQ24075RGTR.pdf"),
+    symbol = Symbol(library = "BQ24075RGTR.kicad_sym"),
+    footprint = File("QFN50P300X300X100-17N-D.kicad_mod"),
+    pins = {
+        "BAT_1": Pins.BAT_1,
+        "BAT_2": Pins.BAT_2,
+        "EN1": Pins.EN1,
+        "EN2": Pins.EN2,
+        "GND": Pins.GND,
+        "ILIM": Pins.ILIM,
+        "IN": Pins.IN,
+        "ISET": Pins.ISET,
+        "OUT_1": Pins.OUT_1,
+        "OUT_2": Pins.OUT_2,
+        "SYSOFF": Pins.SYSOFF,
+        "TMR": Pins.TMR,
+        "TS": Pins.TS,
+        "VSS": Pins.VSS,
+        "~{CE}": Pins.n_CE,
+        "~{CHG}": Pins.n_CHG,
+        "~{PGOOD}": Pins.n_PGOOD
+    },
+)

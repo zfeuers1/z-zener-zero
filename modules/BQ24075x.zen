@@ -1,0 +1,133 @@
+"""
+BQ24075x Reference Design
+
+BQ24075RGTR Li-Ion battery charger with dynamic power path management.
+Based on BQ2407x datasheet typical application circuit (Figure 10-1).
+
+Features:
+- Charges battery while providing system power
+- Programmable charge current via ISET resistor
+- Programmable input current limit via ILIM resistor  
+- Power good and charge status outputs
+- Battery disconnect via SYSOFF (BQ24075/BQ24079)
+"""
+
+load("@stdlib/interfaces.zen", "Power", "Ground", "Gpio")
+
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+Resistor = Module("@stdlib/generics/Resistor.zen")
+BQ24075 = Module("//components/BQ24075RGTR/BQ24075RGTR.zen")
+
+# Power interfaces
+vin = io("vin", Power)  # Input from USB or adapter (4.35V-6.6V)
+vbat = io("vbat", Power)  # Battery connection
+vsys = io("vsys", Power)  # System output (regulated)
+gnd = io("gnd", Ground)
+
+# Control inputs
+ce = io("ce", Gpio, optional=True)  # Charge enable (active low, default enabled)
+en1 = io("en1", Gpio, optional=True)  # Input current limit control
+en2 = io("en2", Gpio, optional=True)  # Input current limit control
+sysoff = io("sysoff", Gpio, optional=True)  # System disconnect (BQ24075 only)
+
+# Status outputs
+chg_status = io("chg_status", Gpio, optional=True)  # Charging status (active low)
+pg_status = io("pg_status", Gpio, optional=True)  # Power good status (active low)
+
+# Internal nets
+_CHG = Net("_CHG")
+_PG = Net("_PG")
+_ISET = Net("_ISET")
+_ILIM = Net("_ILIM")
+_TMR = Net("_TMR")
+_TS = Net("_TS")
+_SYSOFF = Net("_SYSOFF")
+_CE = Net("_CE")
+_EN1 = Net("_EN1")
+_EN2 = Net("_EN2")
+
+# BQ24075 Charger IC
+BQ24075(
+    name = "U_CHARGER",
+    # Power pins
+    IN = vin.NET,
+    BAT_1 = vbat.NET,  # Both BAT pins connected to battery
+    BAT_2 = vbat.NET,
+    OUT_1 = vsys.NET,  # Both OUT pins connected to system
+    OUT_2 = vsys.NET,
+    VSS = gnd.NET,  # Ground
+    GND = gnd.NET,  # Also connect thermal pad GND
+    # Control inputs
+    n_CE = _CE,  # Charge enable (active low)
+    EN1 = _EN1,  # Input current limit control
+    EN2 = _EN2,  # Input current limit control
+    SYSOFF = _SYSOFF,  # System off control (BQ24075 only)
+    # Programming inputs
+    ISET = _ISET,  # Fast charge current programming
+    ILIM = _ILIM,  # Input current limit programming
+    TMR = _TMR,  # Timer programming
+    TS = _TS,  # NTC thermistor input
+    # Status outputs
+    n_CHG = _CHG,  # Charging status (open-drain)
+    n_PGOOD = _PG,  # Power good status (open-drain)
+)
+
+# Input capacitor (1µF-10µF ceramic per datasheet)
+Capacitor(name = "C_IN", value = "10uF", voltage = "10V", package = "0805", P1 = vin.NET, P2 = gnd.NET)
+
+# Battery capacitor (4.7µF-47µF ceramic per datasheet)
+Capacitor(name = "C_BAT", value = "10uF", voltage = "10V", package = "0805", P1 = vbat.NET, P2 = gnd.NET)
+
+# System output capacitor (4.7µF-47µF ceramic per datasheet)
+Capacitor(name = "C_SYS", value = "10uF", voltage = "10V", package = "0805", P1 = vsys.NET, P2 = gnd.NET)
+
+# ISET resistor - programs fast charge current
+# Calculation: R_ISET = 890 A·Ω / I_CHG
+# For 800mA: R = 890/0.8 = 1.1125kΩ → use 1.13kΩ
+Resistor(name = "R_ISET", value = "1.13kohm 1%", package = "0402", P1 = _ISET, P2 = gnd.NET)
+
+# ILIM resistor - programs input current limit
+# Calculation: R_ILIM = 1550 A·Ω / I_IN_MAX
+# For 1.3A: R = 1550/1.3 = 1.192kΩ → use 1.18kΩ
+Resistor(name = "R_ILIM", value = "1.18kohm 1%", package = "0402", P1 = _ILIM, P2 = gnd.NET)
+
+# TMR resistor - programs safety timer
+# Calculation: R_TMR = t_MAXCHG / (10 × 48 s/kΩ)
+# For 6.25hr: R = (6.25×3600)/(10×48) = 46.8kΩ → use 46.4kΩ
+Resistor(name = "R_TMR", value = "46.4kohm 5%", package = "0402", P1 = _TMR, P2 = gnd.NET)
+
+# TS resistor - 10kΩ for applications not using NTC thermistor
+# For actual NTC monitoring, replace with 10kΩ NTC (103AT-2)
+Resistor(name = "R_TS", value = "10kohm 5%", package = "0402", P1 = _TS, P2 = gnd.NET)
+
+# CE pull-down (internal 285kΩ, external optional for guaranteed enable)
+Resistor(name = "R_CE", value = "100kohm 5%", package = "0402", P1 = _CE, P2 = gnd.NET)
+if ce:
+    ce = Gpio(NET = _CE)
+
+# EN1 and EN2 for USB current limit control
+# EN1=0, EN2=0: 100mA (USB100)
+# EN1=1, EN2=0: 500mA (USB500)  
+# EN1=0, EN2=1: Set by ILIM resistor
+# EN1=1, EN2=1: Standby (suspend)
+Resistor(name = "R_EN1", value = "100kohm 5%", package = "0402", P1 = _EN1, P2 = gnd.NET)
+Resistor(name = "R_EN2", value = "100kohm 5%", package = "0402", P1 = _EN2, P2 = gnd.NET)
+if en1:
+    en1 = Gpio(NET = _EN1)
+if en2:
+    en2 = Gpio(NET = _EN2)
+
+# SYSOFF pull-down for normal operation (internal ~5MΩ pull-up to VBAT)
+Resistor(name = "R_SYSOFF", value = "100kohm 5%", package = "0402", P1 = _SYSOFF, P2 = gnd.NET)
+if sysoff:
+    sysoff = Gpio(NET = _SYSOFF)
+
+# CHG status pull-up (for LED or processor monitoring)
+Resistor(name = "R_CHG", value = "100kohm 5%", package = "0402", P1 = _CHG, P2 = vsys.NET)
+if chg_status:
+    chg_status = Gpio(NET = _CHG)
+
+# PGOOD status pull-up (for LED or processor monitoring)
+Resistor(name = "R_PG", value = "100kohm 5%", package = "0402", P1 = _PG, P2 = vsys.NET)
+if pg_status:
+    pg_status = Gpio(NET = _PG)

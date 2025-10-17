@@ -1,0 +1,53 @@
+"""
+MSDM12MA
+
+Micro SD Card Connector, 9 Positions, Connector and Ejector, Push In, Auto Eject Out, Surface Mount, 1.45 mm Height Above Board, Gold Flash
+
+Auto-generated using `pcb-pro search`. Do not modify.
+"""
+
+Pins = struct(
+    CD1 = io("CD1", Net),
+    CD_DAT3 = io("CD_DAT3", Net),
+    CLK = io("CLK", Net),
+    CMD = io("CMD", Net),
+    DAT0 = io("DAT0", Net),
+    DAT1 = io("DAT1", Net),
+    DAT2 = io("DAT2", Net),
+    GND_1 = io("GND_1", Net),
+    GND_2 = io("GND_2", Net),
+    GND_3 = io("GND_3", Net),
+    GND_4 = io("GND_4", Net),
+    GND_5 = io("GND_5", Net),
+    GND_6 = io("GND_6", Net),
+    GND_7 = io("GND_7", Net),
+    VDD = io("VDD", Net),
+    VSS = io("VSS", Net)
+)
+
+Component(
+    name = "MSDM12MA",
+    mpn = "MSDM12MA",
+    description = "Micro SD Card Connector, 9 Positions, Connector and Ejector, Push In, Auto Eject Out, Surface Mount, 1.45 mm Height Above Board, Gold Flash",
+    datasheet = File("MSD-12-A.pdf"),
+    symbol = Symbol(library = "MSD-12-A.kicad_sym"),
+    footprint = File("MSD12A.kicad_mod"),
+    pins = {
+        "CD1": Pins.CD1,
+        "CD/DAT3": Pins.CD_DAT3,
+        "CLK": Pins.CLK,
+        "CMD": Pins.CMD,
+        "DAT0": Pins.DAT0,
+        "DAT1": Pins.DAT1,
+        "DAT2": Pins.DAT2,
+        "GND_1": Pins.GND_1,
+        "GND_2": Pins.GND_2,
+        "GND_3": Pins.GND_3,
+        "GND_4": Pins.GND_4,
+        "GND_5": Pins.GND_5,
+        "GND_6": Pins.GND_6,
+        "GND_7": Pins.GND_7,
+        "VDD": Pins.VDD,
+        "VSS": Pins.VSS
+    },
+)

@@ -1,0 +1,57 @@
+"""
+MAXMM10SM00B
+
+GPS Modules u-blox M10 GNSS LCC module, firmware in ROM, SAW filter, LNA
+
+Auto-generated using `pcb-pro search`. Do not modify.
+"""
+
+Pins = struct(
+    EXTINT = io("EXTINT", Net),
+    GND_1 = io("GND_1", Net),
+    GND_2 = io("GND_2", Net),
+    GND_3 = io("GND_3", Net),
+    LNA_EN = io("LNA_EN", Net),
+    RESERVED = io("RESERVED", Net),
+    RESET_N = io("RESET_N", Net),
+    RF_IN = io("RF_IN", Net),
+    RXD = io("RXD", Net),
+    SAFEBOOT_N = io("SAFEBOOT_N", Net),
+    SCL = io("SCL", Net),
+    SDA = io("SDA", Net),
+    TIMEPULSE = io("TIMEPULSE", Net),
+    TXD = io("TXD", Net),
+    VCC = io("VCC", Net),
+    VCC_RF = io("VCC_RF", Net),
+    V_BCKP = io("V_BCKP", Net),
+    V_IO = io("V_IO", Net)
+)
+
+Component(
+    name = "MAXMM10SM00B",
+    mpn = "MAXMM10SM00B",
+    description = "GPS Modules u-blox M10 GNSS LCC module, firmware in ROM, SAW filter, LNA",
+    datasheet = File("MAX-M10S-00B.pdf"),
+    symbol = Symbol(library = "MAX-M10S-00B.kicad_sym"),
+    footprint = File("MAXM10S00B.kicad_mod"),
+    pins = {
+        "EXTINT": Pins.EXTINT,
+        "GND_1": Pins.GND_1,
+        "GND_2": Pins.GND_2,
+        "GND_3": Pins.GND_3,
+        "LNA_EN": Pins.LNA_EN,
+        "RESERVED": Pins.RESERVED,
+        "RESET_N": Pins.RESET_N,
+        "RF_IN": Pins.RF_IN,
+        "RXD": Pins.RXD,
+        "SAFEBOOT_N": Pins.SAFEBOOT_N,
+        "SCL": Pins.SCL,
+        "SDA": Pins.SDA,
+        "TIMEPULSE": Pins.TIMEPULSE,
+        "TXD": Pins.TXD,
+        "VCC": Pins.VCC,
+        "VCC_RF": Pins.VCC_RF,
+        "V_BCKP": Pins.V_BCKP,
+        "V_IO": Pins.V_IO
+    },
+)

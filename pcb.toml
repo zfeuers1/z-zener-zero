@@ -1,8 +1,9 @@
 [workspace]
-name = "customer"
+name = "zachary-feuerstein"
 
 [packages]
 stdlib = "@github/diodeinc/stdlib:v0.2.24"
+registry = "@github/diodeinc/registry"
 
 [access]
 allow = []

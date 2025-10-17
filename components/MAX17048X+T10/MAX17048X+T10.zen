@@ -1,0 +1,37 @@
+"""
+MAX17048XPT10
+
+Battery Battery Monitor IC Lithium Ion 8-WLP (1.66x0.92)
+
+Auto-generated using `pcb-pro search`. Do not modify.
+"""
+
+Pins = struct(
+    CELL = io("CELL", Net),
+    CTG = io("CTG", Net),
+    GND = io("GND", Net),
+    QSTRT = io("QSTRT", Net),
+    SCL = io("SCL", Net),
+    SDA = io("SDA", Net),
+    VDD = io("VDD", Net),
+    n_ALRT = io("n_ALRT", Net)
+)
+
+Component(
+    name = "MAX17048XPT10",
+    mpn = "MAX17048XPT10",
+    description = "Battery Battery Monitor IC Lithium Ion 8-WLP (1.66x0.92)",
+    datasheet = File("MAX17048X+T10.pdf"),
+    symbol = Symbol(library = "MAX17048X+T10.kicad_sym"),
+    footprint = File("BGA8C40P4X2_167X93X69.kicad_mod"),
+    pins = {
+        "CELL": Pins.CELL,
+        "CTG": Pins.CTG,
+        "GND": Pins.GND,
+        "QSTRT": Pins.QSTRT,
+        "SCL": Pins.SCL,
+        "SDA": Pins.SDA,
+        "VDD": Pins.VDD,
+        "~{ALRT}": Pins.n_ALRT
+    },
+)

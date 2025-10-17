@@ -1,0 +1,147 @@
+"""
+ESP32S3WROOM1x Reference Design
+
+ESP32-S3-WROOM-1-N8R8 module with proper power, decoupling, and boot configuration.
+Based on ESP32-S3-WROOM-1 datasheet peripheral schematics (Figure 9-1).
+
+Note: For N8R8 variant, IO35, IO36, IO37 are connected to Octal SPI PSRAM and NOT available for use.
+"""
+
+load("@stdlib/interfaces.zen", "Power", "Ground", "Gpio", "Usb2", "Uart", "I2c", "Spi")
+
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+Resistor = Module("@stdlib/generics/Resistor.zen")
+ESP32_S3_WROOM = Module("//components/ESP32-S3-WROOM-1-N8R8/ESP32-S3-WROOM-1-N8R8.zen")
+
+# Power and ground
+vdd_3v3 = io("vdd_3v3", Power)
+gnd = io("gnd", Ground)
+
+# USB interface (IO19=D-, IO20=D+)
+usb = io("usb", Usb2)
+
+# Boot/EN control
+en = io("en", Gpio)  # Enable pin (pull high to enable, low to disable)
+
+# Strapping pins (with specific boot requirements)
+gpio0 = io("gpio0", Gpio, optional=True)  # Strapping: boot mode (default pull-up to 1)
+gpio3 = io("gpio3", Gpio, optional=True)  # Strapping: JTAG source (floating)
+gpio45 = io("gpio45", Gpio, optional=True)  # Strapping: VDD_SPI voltage (default pull-down to 0)
+gpio46 = io("gpio46", Gpio, optional=True)  # Strapping: boot mode + ROM print (default pull-down to 0)
+
+# UART0 (default serial)
+uart0_tx = io("uart0_tx", Gpio, optional=True)  # TXD0 (GPIO43)
+uart0_rx = io("uart0_rx", Gpio, optional=True)  # RXD0 (GPIO44)
+
+# General purpose IOs (excluding PSRAM-connected IO35, IO36, IO37)
+gpio1 = io("gpio1", Gpio, optional=True)
+gpio2 = io("gpio2", Gpio, optional=True)
+gpio4 = io("gpio4", Gpio, optional=True)
+gpio5 = io("gpio5", Gpio, optional=True)
+gpio6 = io("gpio6", Gpio, optional=True)
+gpio7 = io("gpio7", Gpio, optional=True)
+gpio8 = io("gpio8", Gpio, optional=True)
+gpio9 = io("gpio9", Gpio, optional=True)
+gpio10 = io("gpio10", Gpio, optional=True)
+gpio11 = io("gpio11", Gpio, optional=True)
+gpio12 = io("gpio12", Gpio, optional=True)
+gpio13 = io("gpio13", Gpio, optional=True)
+gpio14 = io("gpio14", Gpio, optional=True)
+gpio15 = io("gpio15", Gpio, optional=True)
+gpio16 = io("gpio16", Gpio, optional=True)
+gpio17 = io("gpio17", Gpio, optional=True)
+gpio18 = io("gpio18", Gpio, optional=True)
+# gpio19 and gpio20 used for USB
+gpio21 = io("gpio21", Gpio, optional=True)
+# IO35, IO36, IO37 NOT exposed (connected to PSRAM internally)
+gpio38 = io("gpio38", Gpio, optional=True)
+gpio39 = io("gpio39", Gpio, optional=True)
+gpio40 = io("gpio40", Gpio, optional=True)
+gpio41 = io("gpio41", Gpio, optional=True)
+gpio42 = io("gpio42", Gpio, optional=True)
+gpio47 = io("gpio47", Gpio, optional=True)
+gpio48 = io("gpio48", Gpio, optional=True)
+
+# ESP32-S3-WROOM-1-N8R8 Module
+ESP32_S3_WROOM(
+    name = "U_ESP32",
+    # Power pins
+    P3V3 = vdd_3v3.NET,
+    # All 11 ground pins
+    GND_1 = gnd.NET,
+    GND_2 = gnd.NET,
+    GND_3 = gnd.NET,
+    GND_4 = gnd.NET,
+    GND_5 = gnd.NET,
+    GND_6 = gnd.NET,
+    GND_7 = gnd.NET,
+    GND_8 = gnd.NET,
+    GND_9 = gnd.NET,
+    GND_10 = gnd.NET,
+    GND_11 = gnd.NET,
+    # Enable pin
+    EN = en.NET,
+    # Strapping pins
+    IO0 = gpio0.NET if gpio0 else Net("GPIO0_NC"),
+    IO3 = gpio3.NET if gpio3 else Net("GPIO3_STRAP"),  # Must not float per datasheet!
+    IO45 = gpio45.NET if gpio45 else Net("GPIO45_NC"),
+    IO46 = gpio46.NET if gpio46 else Net("GPIO46_NC"),
+    # UART0
+    TXD0 = uart0_tx.NET if uart0_tx else Net("TXD0_NC"),
+    RXD0 = uart0_rx.NET if uart0_rx else Net("RXD0_NC"),
+    # USB (IO19=D-, IO20=D+)
+    IO19 = usb.DM,
+    IO20 = usb.DP,
+    # General GPIOs
+    IO1 = gpio1.NET if gpio1 else Net("GPIO1_NC"),
+    IO2 = gpio2.NET if gpio2 else Net("GPIO2_NC"),
+    IO4 = gpio4.NET if gpio4 else Net("GPIO4_NC"),
+    IO5 = gpio5.NET if gpio5 else Net("GPIO5_NC"),
+    IO6 = gpio6.NET if gpio6 else Net("GPIO6_NC"),
+    IO7 = gpio7.NET if gpio7 else Net("GPIO7_NC"),
+    IO8 = gpio8.NET if gpio8 else Net("GPIO8_NC"),
+    IO9 = gpio9.NET if gpio9 else Net("GPIO9_NC"),
+    IO10 = gpio10.NET if gpio10 else Net("GPIO10_NC"),
+    IO11 = gpio11.NET if gpio11 else Net("GPIO11_NC"),
+    IO12 = gpio12.NET if gpio12 else Net("GPIO12_NC"),
+    IO13 = gpio13.NET if gpio13 else Net("GPIO13_NC"),
+    IO14 = gpio14.NET if gpio14 else Net("GPIO14_NC"),
+    IO15 = gpio15.NET if gpio15 else Net("GPIO15_NC"),
+    IO16 = gpio16.NET if gpio16 else Net("GPIO16_NC"),
+    IO17 = gpio17.NET if gpio17 else Net("GPIO17_NC"),
+    IO18 = gpio18.NET if gpio18 else Net("GPIO18_NC"),
+    IO21 = gpio21.NET if gpio21 else Net("GPIO21_NC"),
+    # IO35, IO36, IO37 connected to PSRAM - leave as NC
+    IO35 = Net("IO35_PSRAM"),
+    IO36 = Net("IO36_PSRAM"),
+    IO37 = Net("IO37_PSRAM"),
+    IO38 = gpio38.NET if gpio38 else Net("GPIO38_NC"),
+    IO39 = gpio39.NET if gpio39 else Net("GPIO39_NC"),
+    IO40 = gpio40.NET if gpio40 else Net("GPIO40_NC"),
+    IO41 = gpio41.NET if gpio41 else Net("GPIO41_NC"),
+    IO42 = gpio42.NET if gpio42 else Net("GPIO42_NC"),
+    IO47 = gpio47.NET if gpio47 else Net("GPIO47_NC"),
+    IO48 = gpio48.NET if gpio48 else Net("GPIO48_NC"),
+)
+
+# Power supply decoupling (per datasheet recommendations)
+Capacitor(name = "C_VDD1", value = "10uF", voltage = "10V", package = "0805", P1 = vdd_3v3.NET, P2 = gnd.NET)
+Capacitor(name = "C_VDD2", value = "100nF", voltage = "10V", package = "0402", P1 = vdd_3v3.NET, P2 = gnd.NET)
+Capacitor(name = "C_VDD3", value = "100nF", voltage = "10V", package = "0402", P1 = vdd_3v3.NET, P2 = gnd.NET)
+
+# EN pin RC delay circuit (R=10k, C=1µF per datasheet Figure 9-1)
+Resistor(name = "R_EN", value = "10kohm 5%", package = "0402", P1 = vdd_3v3.NET, P2 = en.NET)
+Capacitor(name = "C_EN", value = "1uF", voltage = "10V", package = "0402", P1 = en.NET, P2 = gnd.NET)
+
+# GPIO0 pull-up for normal boot (default strapping is 1)
+# Connect to button if boot mode selection needed
+if gpio0:
+    Resistor(name = "R_GPIO0", value = "10kohm 5%", package = "0402", P1 = vdd_3v3.NET, P2 = gpio0.NET)
+
+# GPIO3 MUST NOT FLOAT per ESP32-S3 datasheet Section 4.4
+# "This pin does not have any internal pull resistors and the strapping value
+#  must be controlled by the external circuit that cannot be in a high impedance state"
+# Pull high to enable USB Serial/JTAG (default JTAG source)
+if not gpio3:
+    Resistor(name = "R_GPIO3_STRAP", value = "10kohm 5%", package = "0402", 
+             P1 = vdd_3v3.NET, P2 = Net("GPIO3_STRAP"))

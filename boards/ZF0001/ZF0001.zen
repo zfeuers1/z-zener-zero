@@ -1,0 +1,387 @@
+"""
+ZF0001 - Wearable Voice Logger
+
+A compact wearable device that records spoken notes while running. It streams audio 
+live over Wi-Fi to a web endpoint, where a server performs transcription. It tags 
+each audio chunk with GPS coordinates and battery data. Designed for long battery 
+life, intuitive single-button operation, and simple USB-C connectivity.
+
+Hardware Features:
+- ESP32-S3-WROOM-1-N8R8 (8MB Flash, 8MB PSRAM, WiFi/BLE)
+- Analog microphone input via 3.5mm audio jack with OPA344 amplification
+- u-blox MAX-M10S GNSS module for GPS tagging
+- BQ24075 battery charger with power-path management
+- TPS63070 buck-boost converter (2.0-16V input, 3.3V @ 2A output)
+- MAX17048 fuel gauge for battery monitoring (I2C on always-on rail)
+- MicroSD card for local audio backup
+- USB-C for charging and programming (with ESD protection)
+- RGB status LEDs and power LED
+- Boot/Reset/Record buttons for user control
+- 4-layer PCB design
+"""
+
+load("@stdlib/interfaces.zen", "Analog", "Ground", "Gpio", "I2c", "Power", "Spi", "Uart", "Usb2")
+load("@stdlib/board_config.zen", "Board")
+
+# Define the board configuration
+Board(
+    name = "ZF0001",
+    layout_path = "layout/ZF0001",
+    layers = 4,
+)
+
+# Load reference design modules
+ESP32S3WROOM1 = Module("../../modules/ESP32S3WROOM1x.zen")
+BQ24075 = Module("../../modules/BQ24075x.zen")
+TPS63070 = Module("../../modules/TPS63070x.zen")
+MAX17048 = Module("../../modules/MAX17048x.zen")
+MAXM10S = Module("../../modules/MAXM10Sx.zen")
+AnalogMicInput = Module("../../modules/AnalogMicInput.zen")
+UsbC = Module("@registry/modules/usb/UsbC.zen")
+
+# Generic components
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+Resistor = Module("@stdlib/generics/Resistor.zen")
+Led = Module("@stdlib/generics/Led.zen")
+Inductor = Module("@stdlib/generics/Inductor.zen")
+
+# Specific components
+MicroSDSocket = Module("//components/MSD-12-A/MSD-12-A.zen")
+SlideSwitch = Module("//components/CSS-1210TB/CSS-1210TB.zen")
+JstBatteryConn = Module("//components/S2B-PH-K-S/S2B-PH-K-S.zen")
+TactileButton = Module("@registry/common/button.zen").SKRKAHE020
+PMosfet = Module("@registry/components/DMG2305UX-7/DMG2305UX-7.zen")
+
+# ========================================
+# Power Rails
+# ========================================
+VBUS_5V = Power("VBUS_5V")          # USB 5V input
+VBAT_RAW = Power("VBAT_RAW")        # Battery voltage after reverse protection
+VBAT_SWITCHED = Power("VBAT_SWITCHED")  # Switched battery to charger
+VSYS = Power("VSYS")                # System rail from BQ24075 (always on when USB or battery)
+VDD_3V3 = Power("VDD_3V3")          # Main 3.3V rail (from buck-boost converter)
+VDD_3V3_ANA = Power("VDD_3V3_ANA")  # Filtered 3.3V for analog circuits
+GND = Ground("GND")
+
+# ========================================
+# USB-C Connector (with ESD protection)
+# ========================================
+usb_data = Usb2("USB_DATA")
+
+UsbC(
+    name = "USB",
+    config_usb_type = "USB2_SINK",
+    config_use_usb_power = True,
+    vusb = VBUS_5V,
+    usb2 = usb_data,
+    gnd = GND,
+)
+
+# ========================================
+# Battery Connector
+# ========================================
+# JST PH 2-pin connector for Li-Ion battery
+_VBAT_INPUT = Net("VBAT_INPUT")  # Battery input before protection
+
+JstBatteryConn(
+    name = "J_BAT",
+    P1 = _VBAT_INPUT,    # Battery positive (before protection)
+    P2 = GND.NET,        # Battery negative/ground
+)
+
+# ========================================
+# Battery Reverse Polarity Protection
+# ========================================
+# P-FET with gate pulled to GND for proper conduction
+# Body diode provides reverse polarity protection
+PMosfet(
+    name = "Q_BAT_PROT",
+    S = _VBAT_INPUT,        # Source from battery connector
+    D = VBAT_RAW.NET,       # Drain to system (protected output)
+    G = GND.NET,            # Gate to GND (Vgs = -3.7V for full conduction)
+)
+
+# Operation:
+# - Normal polarity: Vgs = -VBAT (typically -3.7V), MOSFET fully on, Rds_on ~70mΩ
+# - Reverse polarity: Body diode blocks reverse current, protects entire circuit
+# - Gate connected to GND ensures Vgs is sufficiently negative for full enhancement
+
+# ========================================
+# Power Switch (High-Side P-FET on Battery)
+# ========================================
+# Slide switch controls P-FET gate for power on/off
+# P-FET switches battery voltage to charger input
+# When switch connects gate to GND, P-FET conducts (ON)
+# When switch connects gate to VBAT_RAW, P-FET is off (OFF)
+
+SlideSwitch(
+    name = "SW_PWR",
+    P1 = GND.NET,              # Switch position 1 to GND (on)
+    P2 = Net("SW_GATE"),       # Common to gate control
+    P3 = VBAT_RAW.NET,         # Switch position 2 to VBAT_RAW (off)
+    MH1 = GND.NET,  # Mounting hole
+    MH2 = GND.NET,  # Mounting hole
+)
+
+# P-FET for high-side switching (DMG2305UX-7)
+# Switches battery to charger input
+PMosfet(
+    name = "Q_PWR",
+    S = VBAT_RAW.NET,          # Source from protected battery
+    D = VBAT_SWITCHED.NET,     # Drain to charger battery input
+    G = Net("SW_GATE"),        # Gate controlled by slide switch
+)
+
+# Gate pull-up resistor for off state (when switch is open)
+# Pulls gate to source voltage to keep MOSFET off
+Resistor(name = "R_GATE_PU", value = "100kohm 5%", package = "0402",
+         P1 = VBAT_RAW.NET, P2 = Net("SW_GATE"))
+
+# ========================================
+# Battery Charger (BQ24075)
+# ========================================
+# Charger connected to switched battery input
+BQ24075(
+    name = "U_CHARGER",
+    vin = VBUS_5V,
+    vbat = VBAT_SWITCHED,  # Switched battery input
+    vsys = VSYS,           # System output (always on when USB or battery)
+    gnd = GND,
+    chg_status = Gpio("CHG_STAT"),
+    pg_status = Gpio("PG_STAT"),
+)
+
+# ========================================
+# 3.3V Buck-Boost Converter (TPS63070)
+# ========================================
+# Buck-boost powered from VSYS (supports full battery voltage range 2.5V-5V)
+TPS63070(
+    name = "U_BUCKBOOST",
+    vin = VSYS,
+    vout = VDD_3V3,
+    gnd = GND,
+    en = Gpio("BUCKBOOST_EN"),  # Enable control
+    pg = Gpio("BUCKBOOST_PG"),  # Power good output
+)
+
+# Buck-boost enable pull-up for default-on operation
+Resistor(name = "R_BUCKBOOST_EN", value = "100kohm 5%", package = "0402",
+         P1 = VSYS.NET, P2 = Gpio("BUCKBOOST_EN").NET)
+
+# ========================================
+# I2C Bus Configuration
+# ========================================
+i2c_main = I2c("I2C_MAIN")
+
+# I2C pull-up resistors (REQUIRED for open-drain bus)
+# Pulled to VDD_3V3 to ensure GPIO input voltage stays within spec (VDD+0.3V max)
+Resistor(name = "R_I2C_SDA", value = "4.7kohm 5%", package = "0402",
+         P1 = i2c_main.SDA, P2 = VDD_3V3.NET)
+Resistor(name = "R_I2C_SCL", value = "4.7kohm 5%", package = "0402",
+         P1 = i2c_main.SCL, P2 = VDD_3V3.NET)
+
+# ========================================
+# Fuel Gauge (MAX17048)
+# ========================================
+# TRADE-OFF: VCC powered from VDD_3V3 (not VBAT_RAW) to match I2C pull-up domain
+# This means fuel gauge loses learned capacity when power switch is OFF
+# Alternative would violate ESP32 GPIO max voltage spec (VDD+0.3V = 3.6V < 4.2V VBAT)
+# Fuel gauge re-learns capacity over ~5 charge/discharge cycles
+MAX17048(
+    name = "U_FUELGAUGE",
+    vcc = VDD_3V3,  # Matches I2C pull-up domain (safe for ESP32 GPIOs)
+    vbat = VBAT_RAW,  # Monitor battery voltage on CELL pin
+    gnd = GND,
+    i2c = i2c_main,
+    alert = Gpio("FG_ALERT"),
+)
+
+# ========================================
+# ESP32-S3 Microcontroller
+# ========================================
+uart_gnss = Uart("UART_GNSS")
+spi_sd = Spi("SPI_SD")
+
+ESP32S3WROOM1(
+    name = "U_MCU",
+    vdd_3v3 = VDD_3V3,
+    gnd = GND,
+    usb = usb_data,
+    en = Gpio("ESP_EN"),
+    gpio0 = Gpio("ESP_BOOT"),  # Boot button
+    # GPIO assignments
+    gpio1 = Gpio("MIC_IN"),           # GPIO/ADC input from microphone
+    gpio2 = Gpio("BTN_RECORD"),       # Record button
+    gpio4 = Gpio("LED_R"),            # RGB LED - Red
+    gpio5 = Gpio("LED_G"),            # RGB LED - Green  
+    gpio6 = Gpio("LED_B"),            # RGB LED - Blue
+    gpio7 = Gpio("CHG_STAT"),         # Charger status
+    gpio8 = Gpio("PG_STAT"),          # Power good status
+    gpio9 = Gpio("FG_ALERT"),         # Fuel gauge alert
+    gpio10 = Gpio(NET = spi_sd.CS),   # SD card chip select
+    gpio11 = Gpio(NET = spi_sd.MOSI), # SD card MOSI
+    gpio12 = Gpio(NET = spi_sd.CLK),  # SD card clock
+    gpio13 = Gpio(NET = spi_sd.MISO), # SD card MISO
+    gpio14 = Gpio("SD_DETECT"),       # SD card detect
+    gpio15 = Gpio(NET = uart_gnss.TX),    # ESP32 TX → GNSS RX (FIXED)
+    gpio16 = Gpio(NET = uart_gnss.RX),    # ESP32 RX ← GNSS TX (FIXED)
+    # I2C for fuel gauge
+    gpio21 = Gpio(NET = i2c_main.SDA),
+    gpio47 = Gpio(NET = i2c_main.SCL),
+)
+
+# ESP32 boot button pull-up
+Resistor(name = "R_BOOT", value = "10kohm 5%", package = "0402", 
+         P1 = VDD_3V3.NET, P2 = Gpio("ESP_BOOT").NET)
+
+# Boot button (tactile switch)
+TactileButton(
+    name = "SW_BOOT",
+    P1 = Gpio("ESP_BOOT").NET,
+    P2 = GND.NET,
+)
+
+# ESP32 reset button (EN pin)
+# Note: EN pin already has pull-up in ESP32S3WROOM1x module
+TactileButton(
+    name = "SW_RESET",
+    P1 = Gpio("ESP_EN").NET,
+    P2 = GND.NET,
+)
+
+# ========================================
+# GNSS Module (MAX-M10S)
+# ========================================
+MAXM10S(
+    name = "U_GNSS",
+    vcc = VDD_3V3,
+    gnd = GND,
+    uart = uart_gnss,
+    rf_in = Net("GNSS_RF_IN"),  # RF input from u.FL connector (defined in module)
+    # v_bckp intentionally disconnected - VBAT_RAW (4.2V max) exceeds V_BCKP spec (3.6V max)
+    # GNSS will cold start each time (~30s TTFF) but prevents potential module damage
+    # To enable: add voltage divider: VBAT_RAW → 100k → V_BCKP → 180k → GND (outputs 2.7V)
+    reset_n = Gpio("GNSS_RESET"),
+    timepulse = Gpio("GNSS_PPS"),
+)
+
+# GNSS antenna connection (u.FL connector already in MAXM10Sx module)
+# External active antenna will be connected to the u.FL connector
+
+# ========================================
+# Analog Power Filtering
+# ========================================
+# Ferrite bead filter to isolate analog circuits from digital switching noise
+# This prevents buck-boost switching noise and WiFi noise from coupling into audio
+# Using ~10uH ferrite bead with 600ohm@100MHz impedance, 500mA rating
+Inductor(name = "FB_ANA", value = "10uH", current = "500mA", package = "0805",
+         P1 = VDD_3V3.NET, P2 = VDD_3V3_ANA.NET)
+
+# Filter capacitor for analog rail
+Capacitor(name = "C_ANA_FILT", value = "10uF", voltage = "10V", package = "0805",
+          P1 = VDD_3V3_ANA.NET, P2 = GND.NET)
+
+# ========================================
+# Analog Microphone Input
+# ========================================
+AnalogMicInput(
+    name = "MIC",
+    vdd_3v3 = VDD_3V3_ANA,  # Use filtered analog rail
+    gnd = GND,
+    mic_out = Analog(NET = Gpio("MIC_IN").NET),
+)
+
+# ========================================
+# MicroSD Card Socket
+# ========================================
+MicroSDSocket(
+    name = "J_SD",
+    VDD = VDD_3V3.NET,
+    VSS = GND.NET,
+    CLK = spi_sd.CLK,
+    CMD = spi_sd.MOSI,
+    CD_DAT3 = spi_sd.CS,  # DAT3 in SD mode, CS in SPI mode
+    DAT0 = spi_sd.MISO,
+    DAT1 = Net("SD_DAT1"),  # Not used in SPI mode, but needs pull-up
+    DAT2 = Net("SD_DAT2"),  # Not used in SPI mode, but needs pull-up
+    CD1 = Gpio("SD_DETECT").NET,
+    # All 7 GND pins connected to ground
+    GND_1 = GND.NET,
+    GND_2 = GND.NET,
+    GND_3 = GND.NET,
+    GND_4 = GND.NET,
+    GND_5 = GND.NET,
+    GND_6 = GND.NET,
+    GND_7 = GND.NET,
+)
+
+# SD card pull-ups
+Resistor(name = "R_SD_CS", value = "10kohm 5%", package = "0402", 
+         P1 = spi_sd.CS, P2 = VDD_3V3.NET)
+Resistor(name = "R_SD_DAT1", value = "47kohm 5%", package = "0402",
+         P1 = Net("SD_DAT1"), P2 = VDD_3V3.NET)
+Resistor(name = "R_SD_DAT2", value = "47kohm 5%", package = "0402",
+         P1 = Net("SD_DAT2"), P2 = VDD_3V3.NET)
+
+# ========================================
+# User Interface
+# ========================================
+
+# Record Button (momentary push button)
+Resistor(name = "R_BTN_RECORD", value = "10kohm 5%", package = "0402",
+         P1 = VDD_3V3.NET, P2 = Gpio("BTN_RECORD").NET)
+
+# Record button (tactile switch)
+TactileButton(
+    name = "SW_RECORD",
+    P1 = Gpio("BTN_RECORD").NET,
+    P2 = GND.NET,
+)
+
+# RGB LED (common-cathode configuration - FIXED)
+# Red LED: GPIO → R → A, K → GND
+Resistor(name = "R_LED_R", value = "150ohm 5%", package = "0402",
+         P1 = Gpio("LED_R").NET, P2 = Net("LED_R_ANODE"))
+Led(name = "LED_R", color = "red", package = "0603",
+    A = Net("LED_R_ANODE"), K = GND.NET)
+
+# Green LED (higher Vf, smaller resistor)
+Resistor(name = "R_LED_G", value = "47ohm 5%", package = "0402",
+         P1 = Gpio("LED_G").NET, P2 = Net("LED_G_ANODE"))
+Led(name = "LED_G", color = "green", package = "0603",
+    A = Net("LED_G_ANODE"), K = GND.NET)
+
+# Blue LED
+Resistor(name = "R_LED_B", value = "47ohm 5%", package = "0402",
+         P1 = Gpio("LED_B").NET, P2 = Net("LED_B_ANODE"))
+Led(name = "LED_B", color = "blue", package = "0603",
+    A = Net("LED_B_ANODE"), K = GND.NET)
+
+# Power indicator LED (with current-limiting resistor)
+# Connected to VDD_3V3 for constant brightness
+Resistor(name = "R_LED_PWR", value = "150ohm 5%", package = "0402",
+         P1 = VDD_3V3.NET, P2 = Net("LED_PWR_ANODE"))
+Led(name = "LED_PWR", color = "green", package = "0603",
+    A = Net("LED_PWR_ANODE"), K = GND.NET)
+
+# ========================================
+# Bulk Decoupling Capacitors
+# ========================================
+Capacitor(name = "C_BULK_3V3", value = "100uF", voltage = "10V", package = "1206", 
+          P1 = VDD_3V3.NET, P2 = GND.NET)
+Capacitor(name = "C_BULK_VSYS", value = "47uF", voltage = "10V", package = "0805",
+          P1 = VSYS.NET, P2 = GND.NET)
+Capacitor(name = "C_BULK_VBAT", value = "10uF", voltage = "10V", package = "0805",
+          P1 = VBAT_RAW.NET, P2 = GND.NET)
+
+# ========================================
+# Test Points
+# ========================================
+# Test points for prototype debugging and production testing
+TestPoint = Module("@stdlib/generics/TestPoint.zen")
+TestPoint(name = "TP_VBAT", variant = "Pad_D1.0mm", P1 = VBAT_RAW.NET)
+TestPoint(name = "TP_VSYS", variant = "Pad_D1.0mm", P1 = VSYS.NET)
+TestPoint(name = "TP_3V3", variant = "Pad_D1.0mm", P1 = VDD_3V3.NET)
+TestPoint(name = "TP_I2C_SDA", variant = "Pad_D1.0mm", P1 = i2c_main.SDA)
+TestPoint(name = "TP_I2C_SCL", variant = "Pad_D1.0mm", P1 = i2c_main.SCL)
+TestPoint(name = "TP_GND", variant = "Pad_D1.0mm", P1 = GND.NET)

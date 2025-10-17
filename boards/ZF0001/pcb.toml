@@ -1,0 +1,7 @@
+[board]
+name = "ZF0001"
+description = """
+Wearable Voice Logger with ESP32-S3 Wi-Fi streaming, I2S digital microphone input, 
+GPS coordinate tagging, rechargeable Li-ion battery with USB-C charging, and RGB 
+status LED. Designed for 3-5 hour battery runtime with optional SD card backup.
+"""

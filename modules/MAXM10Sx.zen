@@ -1,0 +1,101 @@
+"""
+MAXM10Sx Reference Design
+
+u-blox MAX-M10S-00B GNSS module with UART interface and antenna connection.
+Based on MAX-M10S Integration Manual typical 3.3V design (Figure 36).
+
+Features:
+- Standard precision GNSS (GPS, GLONASS, Galileo, BeiDou)
+- UART and I2C communication interfaces
+- Low power: 25mW in continuous tracking mode
+- Internal LNA and SAW filter
+- Active or passive antenna support via VCC_RF
+"""
+
+load("@stdlib/interfaces.zen", "Power", "Ground", "Uart", "Gpio", "I2c")
+
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+MAX_M10S = Module("//components/MAX-M10S-00B/MAX-M10S-00B.zen")
+
+# Power interfaces (3.3V design)
+vcc = io("vcc", Power)  # Main voltage supply (2.7V-3.6V, typically 3.3V)
+gnd = io("gnd", Ground)
+v_bckp = io("v_bckp", Power, optional=True)  # Backup voltage supply for RTC and BBR
+
+# Communication interfaces
+uart = io("uart", Uart)  # UART interface (TXD, RXD)
+i2c = io("i2c", I2c, optional=True)  # I2C interface (SDA, SCL)
+
+# Control signals
+reset_n = io("reset_n", Gpio, optional=True)  # System reset (active low)
+timepulse = io("timepulse", Gpio, optional=True)  # Time pulse output
+extint = io("extint", Gpio, optional=True)  # External interrupt input
+
+# RF interface
+rf_in = io("rf_in", Net)  # GNSS signal input from antenna
+
+# Internal nets
+_VCC_RF = Net("_VCC_RF")  # Filtered voltage for active antenna
+_LNA_EN = Net("_LNA_EN")  # LNA enable output
+_SAFEBOOT = Net("_SAFEBOOT")  # Safeboot mode pin
+_V_IO = Net("_V_IO")  # IO voltage supply
+_RESERVED = Net("_RESERVED")  # Reserved pin
+
+# MAX-M10S GNSS Module
+MAX_M10S(
+    name = "U_GNSS",
+    # Power pins
+    VCC = vcc.NET,
+    V_IO = _V_IO,  # Connect to VCC for 3.3V design
+    VCC_RF = _VCC_RF,  # Filtered output for active antenna
+    V_BCKP = v_bckp.NET if v_bckp else Net("VBCKP_NC"),  # Optional backup supply
+    # Ground pins (3 GND pins)
+    GND_1 = gnd.NET,
+    GND_2 = gnd.NET,
+    GND_3 = gnd.NET,
+    # UART interface
+    TXD = uart.TX,
+    RXD = uart.RX,
+    # I2C interface
+    SDA = i2c.SDA if i2c else Net("SDA_NC"),
+    SCL = i2c.SCL if i2c else Net("SCL_NC"),
+    # Control pins
+    RESET_N = reset_n.NET if reset_n else Net("RESET_NC"),  # Can leave open if not used
+    TIMEPULSE = timepulse.NET if timepulse else Net("TP_NC"),
+    EXTINT = extint.NET if extint else Net("EXTINT_NC"),
+    SAFEBOOT_N = _SAFEBOOT,  # Leave open for normal boot
+    # RF and LNA
+    RF_IN = rf_in,
+    LNA_EN = _LNA_EN,  # Controls internal LNA and external antenna power
+    # Reserved pin
+    RESERVED = _RESERVED,  # Must be left floating or NC
+)
+
+# VCC and V_IO tied together for 3.3V design (per Figure 36)
+# Note: VIO_SEL pin (pin 15) must be left open for 3.3V supply (per Table 1)
+Resistor = Module("@stdlib/generics/Resistor.zen")
+Resistor(name = "R_VIO", value = "0ohm", package = "0402", P1 = vcc.NET, P2 = _V_IO)
+
+# VCC supply decoupling capacitors
+Capacitor(name = "C_VCC1", value = "10uF", voltage = "10V", package = "0805", P1 = vcc.NET, P2 = gnd.NET)
+Capacitor(name = "C_VCC2", value = "100nF", voltage = "10V", package = "0402", P1 = vcc.NET, P2 = gnd.NET)
+
+# VCC_RF decoupling (for active antenna power supply)
+# VCC_RF is internally connected to VCC through ferrite bead
+Capacitor(name = "C_VCCRF", value = "100nF", voltage = "10V", package = "0402", P1 = _VCC_RF, P2 = gnd.NET)
+
+# V_BCKP decoupling if backup supply is used
+if v_bckp:
+    Capacitor(name = "C_VBCKP", value = "100nF", voltage = "10V", package = "0402", P1 = v_bckp.NET, P2 = gnd.NET)
+
+# SAFEBOOT_N left open for normal operation (internally connected to TIMEPULSE through 1kΩ)
+# RESERVED pin left floating per datasheet
+
+# LNA_EN can be used to control external active antenna power
+# It also controls the internal LNA (cannot be used for other purposes)
+
+# Notes for antenna connection:
+# - Active antenna can be powered from VCC_RF (controlled by LNA_EN)
+# - Passive antenna can be connected directly to RF_IN
+# - RF_IN is internally DC-blocked and 50Ω matched
+# - For cellular applications, external SAW filter recommended before RF_IN

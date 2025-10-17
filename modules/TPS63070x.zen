@@ -1,0 +1,144 @@
+"""
+TPS63070x Reference Design
+
+TPS63070 buck-boost converter (2V-16V input, 2.5V-9V output, up to 2A).
+Based on TPS63070 datasheet typical application circuit (Section 9.2).
+
+Features:
+- 2.0V to 16V input voltage range (supports full Li-ion discharge)
+- 2.5V to 9V adjustable output voltage
+- Up to 2A output current
+- Automatic buck/boost mode transition
+- Up to 95% efficiency
+- Power save mode for light load efficiency
+- Power good output
+- Output discharge option (TPS630702 variant)
+"""
+
+load("@stdlib/interfaces.zen", "Power", "Ground", "Gpio")
+
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+Resistor = Module("@stdlib/generics/Resistor.zen")
+Inductor = Module("@stdlib/generics/Inductor.zen")
+TPS63070 = Module("//components/TPS63070RNMR/TPS63070RNMR.zen")
+
+# Define module interfaces
+vin = io("vin", Power)       # Input voltage (2.0V-16V)
+vout = io("vout", Power)     # Output voltage (configurable)
+gnd = io("gnd", Ground)
+en = io("en", Gpio, optional=True)  # Enable input (active high)
+pg = io("pg", Gpio, optional=True)  # Power good output (open drain)
+
+# Configuration: Output voltage
+config_vout = config("config_vout", float, default=3.3, optional=False)
+
+# Configuration: Power save mode (PWM/PFM for efficiency vs PWM-only)
+PowerSaveMode = enum("AUTO", "FORCED_PWM")
+config_power_save = config("config_power_save", PowerSaveMode, default="AUTO", optional=False)
+
+# Internal nets
+_EN = Net("_EN")
+_L1 = Net("_L1")
+_L2 = Net("_L2")
+_FB = Net("_FB")
+_FB2 = Net("_FB2")
+_VSEL = Net("_VSEL")
+_VAUX = Net("_VAUX")
+_PS_SYNC = Net("_PS_SYNC")
+_PG = Net("_PG")
+
+# TPS63070 IC
+TPS63070(
+    name = "U_BUCKBOOST",
+    VIN_1 = vin.NET,
+    VIN_2 = vin.NET,
+    GND = gnd.NET,
+    PGND = gnd.NET,
+    L1 = _L1,
+    L2 = _L2,
+    FB = _FB,
+    FB2 = _FB2,
+    VSEL = _VSEL,
+    EN = _EN,
+    PS_S = _PS_SYNC,  # Power save / sync pin
+    PG = _PG,
+    VAUX = _VAUX,
+    VOUT_1 = vout.NET,
+    VOUT_2 = vout.NET,
+)
+
+# Input capacitor (10µF ceramic, X5R or better)
+Capacitor(name = "C_IN", value = "10uF", voltage = "25V", package = "0805",
+          P1 = vin.NET, P2 = gnd.NET)
+
+# Output inductor (1.5µH recommended for 3.3V output)
+# For 3.3V: L = 1.5µH, Isat > 4A, DCR < 100mΩ
+Inductor(name = "L_MAIN", value = "1.5uH", current = "4A", package = "1210",
+         P1 = _L1, P2 = _L2)
+
+# Output capacitor (47µF ceramic, X5R or better, low ESR)
+# Effective capacitance after DC bias must be > 15µF
+Capacitor(name = "C_OUT1", value = "47uF", voltage = "10V", package = "1206",
+          P1 = vout.NET, P2 = gnd.NET)
+Capacitor(name = "C_OUT2", value = "47uF", voltage = "10V", package = "1206",
+          P1 = vout.NET, P2 = gnd.NET)
+
+# VAUX capacitor (100nF ceramic for internal LDO)
+Capacitor(name = "C_VAUX", value = "100nF", voltage = "10V", package = "0402",
+          P1 = _VAUX, P2 = gnd.NET)
+
+# Feedback resistor divider
+# VOUT = 0.8V * (1 + R_FBT / R_FBB)  [V_FB = 0.8V per datasheet]
+# Equation from datasheet: R1 = R2 * (VOUT / 0.8V - 1)
+# For 3.3V: R_FBT = 100k * (3.3/0.8 - 1) = 100k * 3.125 = 312.5k → use 316kΩ
+R_FBB_VALUE = "100kohm 1%"
+if config_vout == 3.3:
+    R_FBT_VALUE = "316kohm 1%"
+elif config_vout == 5.0:
+    R_FBT_VALUE = "523kohm 1%"  # 100k * (5.0/0.8 - 1) = 525k
+elif config_vout == 3.7:
+    R_FBT_VALUE = "383kohm 1%"  # 100k * (3.7/0.8 - 1) = 362.5k
+else:
+    # Calculate for custom voltage: R_FBT = R_FBB * (VOUT / 0.8 - 1)
+    R_FBT_OHM = int(100000 * (config_vout / 0.8 - 1))
+    R_FBT_VALUE = str(R_FBT_OHM) + "ohm 1%"
+
+Resistor(name = "R_FBT", value = R_FBT_VALUE, package = "0402",
+         P1 = vout.NET, P2 = _FB)
+Resistor(name = "R_FBB", value = R_FBB_VALUE, package = "0402",
+         P1 = _FB, P2 = gnd.NET)
+
+# VSEL pin (voltage scaling) - tie to GND if not used
+Resistor(name = "R_VSEL", value = "0ohm", package = "0402",
+         P1 = _VSEL, P2 = gnd.NET)
+
+# FB2 pin - leave open or connect to GND if not used
+Resistor(name = "R_FB2", value = "0ohm", package = "0402",
+         P1 = _FB2, P2 = gnd.NET)
+
+# Power save mode configuration
+if config_power_save == PowerSaveMode("AUTO"):
+    # PS/SYNC high for automatic PWM/PFM switching
+    Resistor(name = "R_PS", value = "100kohm 5%", package = "0402",
+             P1 = _PS_SYNC, P2 = vin.NET)
+elif config_power_save == PowerSaveMode("FORCED_PWM"):
+    # PS/SYNC low for forced PWM mode
+    Resistor(name = "R_PS", value = "100kohm 5%", package = "0402",
+             P1 = _PS_SYNC, P2 = gnd.NET)
+
+# Enable pin configuration
+if en:
+    # External enable control
+    en = Gpio(NET = _EN)
+else:
+    # Pull high for always-on operation
+    Resistor(name = "R_EN_PU", value = "100kohm 5%", package = "0402",
+             P1 = vin.NET, P2 = _EN)
+
+# Power good output
+if pg:
+    # Pull-up for power good signal
+    Resistor(name = "R_PG", value = "100kohm 5%", package = "0402",
+             P1 = vout.NET, P2 = _PG)
+    pg = Gpio(NET = _PG)
+

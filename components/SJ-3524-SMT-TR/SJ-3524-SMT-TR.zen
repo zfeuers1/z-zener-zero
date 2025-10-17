@@ -1,0 +1,33 @@
+"""
+SJM3524MSMTMTR
+
+3.5 mm, Stereo, Right Angle, Surface Mount (SMT), 3 Conductors, 1 Internal Switch, Audio Jack Connector
+
+Auto-generated using `pcb-pro search`. Do not modify.
+"""
+
+Pins = struct(
+    P5 = io("P5", Net),
+    P6 = io("P6", Net),
+    RING = io("RING", Net),
+    SLEEVE = io("SLEEVE", Net),
+    TIP = io("TIP", Net),
+    TIP_SWITCH = io("TIP_SWITCH", Net)
+)
+
+Component(
+    name = "SJM3524MSMTMTR",
+    mpn = "SJM3524MSMTMTR",
+    description = "3.5 mm, Stereo, Right Angle, Surface Mount (SMT), 3 Conductors, 1 Internal Switch, Audio Jack Connector",
+    datasheet = File("SJ-3524-SMT-TR.pdf"),
+    symbol = Symbol(library = "SJ-3524-SMT-TR.kicad_sym"),
+    footprint = File("SJ3524SMTTR.kicad_mod"),
+    pins = {
+        "5": Pins.P5,
+        "6": Pins.P6,
+        "RING": Pins.RING,
+        "SLEEVE": Pins.SLEEVE,
+        "TIP": Pins.TIP,
+        "TIP_SWITCH": Pins.TIP_SWITCH
+    },
+)

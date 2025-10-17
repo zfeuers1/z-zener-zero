@@ -1,0 +1,117 @@
+"""
+AnalogMicInput Reference Design
+
+Analog microphone input via 3.5mm TRS audio jack with op-amp amplification.
+
+This design provides:
+- 3.5mm TRS jack for external electret microphone
+- Microphone bias voltage (~1.65V from 3.3V rail)
+- Op-amp amplification stage (gain of 20 = 26dB)
+- AC coupling to ADC input
+- Optimized for ESP32 ADC input range (0-2.45V)
+
+Expected signal levels:
+- Mic output: 10-100mV RMS
+- After gain: 200mV-2V RMS (uses 8-80% of ADC range)
+"""
+
+load("@stdlib/interfaces.zen", "Power", "Ground", "Analog")
+
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+Resistor = Module("@stdlib/generics/Resistor.zen")
+AudioJack = Module("//components/SJ-3524-SMT-TR/SJ-3524-SMT-TR.zen")
+OpAmp = Module("//components/OPA344NA_250/OPA344NA_250.zen")
+
+# Power and interfaces
+vdd_3v3 = io("vdd_3v3", Power)
+gnd = io("gnd", Ground)
+mic_out = io("mic_out", Analog)  # Output to ADC (AC-coupled)
+
+# Internal nets
+_MIC_IN = Net("_MIC_IN")  # Microphone signal from jack
+_MIC_BIAS = Net("_MIC_BIAS")  # Bias voltage for electret mic
+_MIC_AC = Net("_MIC_AC")  # AC-coupled mic signal (before amp)
+_OPAMP_OUT = Net("_OPAMP_OUT")  # Op-amp output
+_OPAMP_NEG = Net("_OPAMP_NEG")  # Op-amp negative input (feedback)
+_OPAMP_VREF = Net("_OPAMP_VREF")  # Op-amp virtual ground reference
+
+# 3.5mm TRS Audio Jack (Tip=Mic, Ring=NC, Sleeve=GND)
+# This is a stereo jack used for mono microphone:
+# - TIP: Microphone signal
+# - RING: Not used for mono mic
+# - SLEEVE: Ground
+AudioJack(
+    name = "J_MIC",
+    TIP = _MIC_IN,  # Microphone signal
+    RING = gnd.NET,  # Ground (or leave floating for stereo)
+    SLEEVE = gnd.NET,  # Ground
+    TIP_SWITCH = Net("TS_NC"),  # Tip switch detect (not used)
+    P5 = gnd.NET,  # Mechanical ground
+    P6 = gnd.NET,  # Mechanical ground
+)
+
+# Microphone bias network (for electret microphones)
+# Creates ~2.0V bias from 3.3V supply
+# R_BIAS1 and R_BIAS2 form voltage divider: Vbias = 3.3V * R_BIAS2 / (R_BIAS1 + R_BIAS2)
+# With 2.2kΩ + 2.2kΩ: Vbias = 3.3V * 2.2/(2.2+2.2) = 1.65V
+# Electret mics typically need 1.5V-3.0V bias through 2kΩ-10kΩ resistor
+
+Resistor(name = "R_BIAS1", value = "2.2kohm 5%", package = "0402", P1 = vdd_3v3.NET, P2 = _MIC_BIAS)
+Resistor(name = "R_BIAS2", value = "2.2kohm 5%", package = "0402", P1 = _MIC_BIAS, P2 = gnd.NET)
+Capacitor(name = "C_BIAS", value = "10uF", voltage = "10V", package = "0805", P1 = _MIC_BIAS, P2 = gnd.NET)
+
+# Connect microphone input to bias through series resistor
+# This provides DC bias to electret microphone
+Resistor(name = "R_MIC", value = "2.2kohm 5%", package = "0402", P1 = _MIC_BIAS, P2 = _MIC_IN)
+
+# AC coupling capacitor (blocks DC, passes audio signal)
+# C = 1µF gives HPF corner: fc = 1/(2π*R*C)
+# With 10kΩ input impedance: fc = 1/(2π*10k*1µ) ≈ 16 Hz
+Capacitor(name = "C_AC", value = "1uF", voltage = "10V", package = "0402", P1 = _MIC_IN, P2 = _MIC_AC)
+
+# Input resistor to establish DC level before op-amp
+Resistor(name = "R_IN", value = "10kohm 5%", package = "0402", P1 = _MIC_AC, P2 = _OPAMP_VREF)
+
+# ========================================
+# Op-Amp Amplification Stage
+# ========================================
+# Non-inverting amplifier with gain = 1 + (R_GAIN1 / R_GAIN2)
+# Target gain = 20 (26dB) for microphone signal
+# Using R_GAIN2 = 1kΩ, R_GAIN1 = 19kΩ → Gain = 1 + 19/1 = 20
+
+# Op-amp reference voltage (virtual ground at VDD/2 = 1.65V)
+Resistor(name = "R_VREF1", value = "10kohm 5%", package = "0402", P1 = vdd_3v3.NET, P2 = _OPAMP_VREF)
+Resistor(name = "R_VREF2", value = "10kohm 5%", package = "0402", P1 = _OPAMP_VREF, P2 = gnd.NET)
+Capacitor(name = "C_VREF", value = "10uF", voltage = "10V", package = "0805", P1 = _OPAMP_VREF, P2 = gnd.NET)
+
+# Op-amp circuit
+OpAmp(
+    name = "U_OPAMP",
+    VP = vdd_3v3.NET,    # V+ power
+    VM = gnd.NET,        # V- (ground)
+    PIN = _MIC_AC,       # Positive input (mic signal)
+    MIN = _OPAMP_NEG,    # Negative input (feedback)
+    OUT = _OPAMP_OUT,    # Output
+)
+
+# Op-amp power supply decoupling
+Capacitor(name = "C_OPAMP", value = "100nF", voltage = "10V", package = "0402", P1 = vdd_3v3.NET, P2 = gnd.NET)
+
+# Feedback network for non-inverting amplifier
+# Gain = 1 + (R_GAIN1 / R_GAIN2) = 1 + (19k / 1k) = 20
+Resistor(name = "R_GAIN1", value = "19kohm 1%", package = "0402", P1 = _OPAMP_OUT, P2 = _OPAMP_NEG)
+Resistor(name = "R_GAIN2", value = "1kohm 1%", package = "0402", P1 = _OPAMP_NEG, P2 = _OPAMP_VREF)
+
+# Output coupling capacitor to ADC
+# Blocks DC bias, centers signal around ADC reference (0V or VDD/2)
+Capacitor(name = "C_OUT", value = "1uF", voltage = "10V", package = "0402", P1 = _OPAMP_OUT, P2 = mic_out.NET)
+
+# ADC input pull-down to establish 0V DC level
+Resistor(name = "R_OUT", value = "10kohm 5%", package = "0402", P1 = mic_out.NET, P2 = gnd.NET)
+
+# Notes:
+# - Gain of 20 brings 10-100mV mic signal to 200mV-2V (optimal for 12-bit ADC)
+# - Op-amp biased at VDD/2 for maximum output swing
+# - OPA344 rail-to-rail op-amp: perfect for single-supply 3.3V operation
+# - Low-pass filtering at ~16kHz handled by ADC sampling (needs software decimation)
+# - For higher/lower gain, change R_GAIN1 (gain = 1 + R_GAIN1/1k)

@@ -1,0 +1,48 @@
+"""
+TPS63070RNMR
+
+Auto-generated using `pcb-pro search`. Do not modify.
+"""
+
+Pins = struct(
+    EN = io("EN", Net),
+    FB = io("FB", Net),
+    FB2 = io("FB2", Net),
+    GND = io("GND", Net),
+    L1 = io("L1", Net),
+    L2 = io("L2", Net),
+    PG = io("PG", Net),
+    PGND = io("PGND", Net),
+    PS_S = io("PS_S", Net),
+    VAUX = io("VAUX", Net),
+    VIN_1 = io("VIN_1", Net),
+    VIN_2 = io("VIN_2", Net),
+    VOUT_1 = io("VOUT_1", Net),
+    VOUT_2 = io("VOUT_2", Net),
+    VSEL = io("VSEL", Net)
+)
+
+Component(
+    name = "TPS63070RNMR",
+    mpn = "TPS63070RNMR",
+    datasheet = File("TPS63070RNMR.pdf"),
+    symbol = Symbol(library = "TPS63070RNMR.kicad_sym"),
+    footprint = File("TPS630701RNMR.kicad_mod"),
+    pins = {
+        "EN": Pins.EN,
+        "FB": Pins.FB,
+        "FB2": Pins.FB2,
+        "GND": Pins.GND,
+        "L1": Pins.L1,
+        "L2": Pins.L2,
+        "PG": Pins.PG,
+        "PGND": Pins.PGND,
+        "PS/S": Pins.PS_S,
+        "VAUX": Pins.VAUX,
+        "VIN_1": Pins.VIN_1,
+        "VIN_2": Pins.VIN_2,
+        "VOUT_1": Pins.VOUT_1,
+        "VOUT_2": Pins.VOUT_2,
+        "VSEL": Pins.VSEL
+    },
+)
