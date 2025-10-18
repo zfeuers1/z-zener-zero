@@ -7,12 +7,18 @@ This design provides:
 - 3.5mm TRS jack for external electret microphone
 - Microphone bias voltage (~1.65V from 3.3V rail)
 - Op-amp amplification stage (gain of 20 = 26dB)
+- Anti-aliasing filter (10.6kHz cutoff)
 - AC coupling to ADC input
 - Optimized for ESP32 ADC input range (0-2.45V)
 
 Expected signal levels:
 - Mic output: 10-100mV RMS
 - After gain: 200mV-2V RMS (uses 8-80% of ADC range)
+
+Audio quality limitations:
+- SNR: ~32dB (adequate for voice recording, marginal for speech recognition)
+- ESP32 ADC noise floor limits quality
+- For better audio quality, consider I2S digital microphone (60dB+ SNR)
 """
 
 load("@stdlib/interfaces.zen", "Power", "Ground", "Analog")

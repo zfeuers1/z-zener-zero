@@ -49,6 +49,7 @@ Inductor = Module("@stdlib/generics/Inductor.zen")
 # Specific components
 MicroSDSocket = Module("//components/MSD-12-A/MSD-12-A.zen")
 TactileButton = Module("@registry/common/button.zen").SKRKAHE020
+GpsAntenna = Module("//components/DSGP.1575.25.4.A.02/DSGP.1575.25.4.A.02.zen")
 
 # ========================================
 # Power Rails
@@ -297,12 +298,14 @@ Resistor(name = "R_GNSS_BCKP_TOP", value = "100kohm 5%", package = "0402",
 Resistor(name = "R_GNSS_BCKP_BOT", value = "180kohm 5%", package = "0402",
          P1 = _GNSS_VBCKP, P2 = GND.NET)
 
+_GNSS_RF_IN = Net("GNSS_RF_IN")  # RF signal from antenna to GPS module
+
 MAXM10S(
     name = "U_GNSS",
     vcc = VDD_3V3,
     gnd = GND,
     uart = uart_gnss,
-    rf_in = Net("GNSS_RF_IN"),  # RF input from u.FL connector (defined in module)
+    rf_in = _GNSS_RF_IN,
     v_bckp = Power(NET = _GNSS_VBCKP),  # Backup voltage for hot start capability
     reset_n = gnss_reset,
     timepulse = gnss_pps,
@@ -311,8 +314,25 @@ MAXM10S(
     }
 )
 
-# GNSS antenna connection (u.FL connector already in MAXM10Sx module)
-# External active antenna will be connected to the u.FL connector
+# GPS Ceramic Patch Antenna (DSGP.1575.25.4.A.02)
+# Passive ceramic patch antenna - relies on MAX-M10S internal LNA
+# Gain: 2dBi, Frequency: 1575.42MHz (GPS L1 + Galileo E1)
+# Size: 25×25×4mm, surface mount
+GpsAntenna(
+    name = "ANT_GPS",
+    RF_FEED = _GNSS_RF_IN,
+    GROUND_1 = GND.NET,
+    GROUND_2 = GND.NET,
+    GROUND_3 = GND.NET,
+    GROUND_4 = GND.NET,
+    GROUND_5 = GND.NET,
+    GROUND_6 = GND.NET,
+    GROUND_7 = GND.NET,
+    GROUND_8 = GND.NET,
+    properties = {
+        "collapse": True
+    }
+)
 
 # ========================================
 # MicroSD Card Socket

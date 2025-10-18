@@ -1,0 +1,39 @@
+"""
+DSGP_1575_25_4_A_02
+
+Antennas DSGP.1575.25 25*25*4mm GPS L1 & Galileo E1 Ceramic Patch RF ANTENNA Galileo, GPS Ceramic Patch Solder Surface Mount
+
+Auto-generated using `pcb-pro search`. Do not modify.
+"""
+
+Pins = struct(
+    GROUND_1 = io("GROUND_1", Net),
+    GROUND_2 = io("GROUND_2", Net),
+    GROUND_3 = io("GROUND_3", Net),
+    GROUND_4 = io("GROUND_4", Net),
+    GROUND_5 = io("GROUND_5", Net),
+    GROUND_6 = io("GROUND_6", Net),
+    GROUND_7 = io("GROUND_7", Net),
+    GROUND_8 = io("GROUND_8", Net),
+    RF_FEED = io("RF_FEED", Net)
+)
+
+Component(
+    name = "DSGP_1575_25_4_A_02",
+    mpn = "DSGP_1575_25_4_A_02",
+    description = "Antennas DSGP.1575.25 25*25*4mm GPS L1 & Galileo E1 Ceramic Patch RF ANTENNA Galileo, GPS Ceramic Patch Solder Surface Mount",
+    datasheet = File("DSGP_1575_25_4_A_02.pdf"),
+    symbol = Symbol(library = "DSGP_1575_25_4_A_02.kicad_sym"),
+    footprint = File("DSGP1575254A02.kicad_mod"),
+    pins = {
+        "GROUND_1": Pins.GROUND_1,
+        "GROUND_2": Pins.GROUND_2,
+        "GROUND_3": Pins.GROUND_3,
+        "GROUND_4": Pins.GROUND_4,
+        "GROUND_5": Pins.GROUND_5,
+        "GROUND_6": Pins.GROUND_6,
+        "GROUND_7": Pins.GROUND_7,
+        "GROUND_8": Pins.GROUND_8,
+        "RF_FEED": Pins.RF_FEED
+    },
+)

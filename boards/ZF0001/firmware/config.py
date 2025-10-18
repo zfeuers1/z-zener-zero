@@ -49,6 +49,7 @@ PINS = {
     'SD_CLK': 12,
     'SD_MISO': 13,
     'SD_DETECT': 14,
+    'SD_FREQ': 4000000,     # 4MHz SPI clock (limit for EMI and power consumption)
 }
 
 # Audio Configuration
