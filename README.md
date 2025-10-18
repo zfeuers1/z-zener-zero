@@ -7,7 +7,7 @@ A compact wearable device that continuously records audio, captures GPS location
 
 ---
 
-## 📚 Documentation (3 Files Only!)
+## 📚 Documentation
 
 1. **[HARDWARE.md](boards/ZF0001/HARDWARE.md)** - Complete hardware design with diagrams
 2. **[firmware/FIRMWARE.md](boards/ZF0001/firmware/FIRMWARE.md)** - Firmware API and server guide  
@@ -32,7 +32,7 @@ A compact wearable device that continuously records audio, captures GPS location
 }
 ```
 
-### MP3 Conversion (5 Lines!)
+### MP3 Conversion 
 ```python
 from pydub import AudioSegment
 audio = AudioSegment(samples.tobytes(), frame_rate=16000, sample_width=2, channels=1)
