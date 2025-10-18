@@ -145,3 +145,14 @@ if gpio0:
 if not gpio3:
     Resistor(name = "R_GPIO3_STRAP", value = "10kohm 5%", package = "0402", 
              P1 = vdd_3v3.NET, P2 = Net("GPIO3_STRAP"))
+
+# pcb:sch C_EN.C x=-643.6200 y=49.8000 rot=0
+# pcb:sch C_VDD1.C x=-783.3200 y=49.8000 rot=0
+# pcb:sch C_VDD2.C x=-948.4200 y=49.8000 rot=0
+# pcb:sch C_VDD3.C x=-1113.5200 y=49.8000 rot=0
+# pcb:sch R_EN.R x=-633.4600 y=-102.6000 rot=0
+# pcb:sch R_GPIO0.R x=-176.2600 y=-216.9000 rot=270
+# pcb:sch U_ESP32.ESP32MS3MWROOMM1MN8R8 x=-229.6000 y=-102.6000 rot=0
+# pcb:sch gnd.2 x=265.7000 y=634.0000 rot=0
+# pcb:sch gnd.3 x=-775.7000 y=418.1000 rot=0
+# pcb:sch vdd_3v3.3 x=-770.6200 y=-267.7000 rot=0

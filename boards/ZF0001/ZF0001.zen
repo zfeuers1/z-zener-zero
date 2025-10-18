@@ -149,6 +149,9 @@ BQ24075(
     gnd = GND,
     chg_status = Gpio("CHG_STAT"),
     pg_status = Gpio("PG_STAT"),
+    properties = {
+        "collapse": True
+    }
 )
 
 # ========================================
@@ -162,6 +165,9 @@ TPS63070(
     gnd = GND,
     en = Gpio("BUCKBOOST_EN"),  # Enable control
     pg = Gpio("BUCKBOOST_PG"),  # Power good output
+    properties = {
+        "collapse": True
+    }
 )
 
 # Buck-boost enable pull-up for default-on operation
@@ -194,6 +200,9 @@ MAX17048(
     gnd = GND,
     i2c = i2c_main,
     alert = Gpio("FG_ALERT"),
+    properties = {
+        "collapse": True
+    }
 )
 
 # ========================================
@@ -228,6 +237,9 @@ ESP32S3WROOM1(
     # I2C for fuel gauge
     gpio21 = Gpio(NET = i2c_main.SDA),
     gpio47 = Gpio(NET = i2c_main.SCL),
+    properties = {
+        "collapse": True
+    }
 )
 
 # ESP32 boot button pull-up
@@ -239,6 +251,9 @@ TactileButton(
     name = "SW_BOOT",
     P1 = Gpio("ESP_BOOT").NET,
     P2 = GND.NET,
+    properties = {
+        "collapse": True
+    }
 )
 
 # ESP32 reset button (EN pin)
@@ -247,6 +262,9 @@ TactileButton(
     name = "SW_RESET",
     P1 = Gpio("ESP_EN").NET,
     P2 = GND.NET,
+    properties = {
+        "collapse": True
+    }
 )
 
 # ========================================
@@ -263,6 +281,9 @@ MAXM10S(
     # To enable: add voltage divider: VBAT_RAW → 100k → V_BCKP → 180k → GND (outputs 2.7V)
     reset_n = Gpio("GNSS_RESET"),
     timepulse = Gpio("GNSS_PPS"),
+    properties = {
+        "collapse": True
+    }
 )
 
 # GNSS antenna connection (u.FL connector already in MAXM10Sx module)
@@ -289,6 +310,9 @@ AnalogMicInput(
     vdd_3v3 = VDD_3V3_ANA,  # Use filtered analog rail
     gnd = GND,
     mic_out = Analog(NET = Gpio("MIC_IN").NET),
+    properties = {
+        "collapse": True
+    }
 )
 
 # ========================================
@@ -313,6 +337,9 @@ MicroSDSocket(
     GND_5 = GND.NET,
     GND_6 = GND.NET,
     GND_7 = GND.NET,
+    properties = {
+        "collapse": True
+    }
 )
 
 # SD card pull-ups
@@ -322,6 +349,9 @@ Resistor(name = "R_SD_DAT1", value = "47kohm 5%", package = "0402",
          P1 = Net("SD_DAT1"), P2 = VDD_3V3.NET)
 Resistor(name = "R_SD_DAT2", value = "47kohm 5%", package = "0402",
          P1 = Net("SD_DAT2"), P2 = VDD_3V3.NET)
+# Card detect pull-up (CD switch pulls to GND when card inserted)
+Resistor(name = "R_SD_DETECT", value = "47kohm 5%", package = "0402",
+         P1 = Gpio("SD_DETECT").NET, P2 = VDD_3V3.NET)
 
 # ========================================
 # User Interface
@@ -336,6 +366,9 @@ TactileButton(
     name = "SW_RECORD",
     P1 = Gpio("BTN_RECORD").NET,
     P2 = GND.NET,
+    properties = {
+        "collapse": True
+    }
 )
 
 # RGB LED (common-cathode configuration - FIXED)
@@ -385,3 +418,59 @@ TestPoint(name = "TP_3V3", variant = "Pad_D1.0mm", P1 = VDD_3V3.NET)
 TestPoint(name = "TP_I2C_SDA", variant = "Pad_D1.0mm", P1 = i2c_main.SDA)
 TestPoint(name = "TP_I2C_SCL", variant = "Pad_D1.0mm", P1 = i2c_main.SCL)
 TestPoint(name = "TP_GND", variant = "Pad_D1.0mm", P1 = GND.NET)
+
+# pcb:sch GND.1 x=-204.2000 y=-255.0000 rot=0
+# pcb:sch GND.2 x=176.8000 y=494.3000 rot=0
+# pcb:sch GND.3 x=367.3000 y=-1017.0000 rot=0
+# pcb:sch GND.4 x=443.5000 y=-470.9000 rot=0
+# pcb:sch GND.5 x=-432.8000 y=-572.5000 rot=0
+# pcb:sch GND.6 x=722.9000 y=-1486.9000 rot=0
+# pcb:sch GND.7 x=989.6000 y=-788.4000 rot=0
+# pcb:sch GND.8 x=1421.4000 y=-788.4000 rot=0
+# pcb:sch GND.9 x=2145.3000 y=-1652.0000 rot=0
+# pcb:sch GND.10 x=2158.0000 y=-1105.9000 rot=0
+# pcb:sch GND.11 x=1992.9000 y=-1105.9000 rot=0
+# pcb:sch GND.12 x=2323.1000 y=-1105.9000 rot=0
+# pcb:sch GND.13 x=1650.0000 y=-458.2000 rot=0
+# pcb:sch GND.14 x=2259.6000 y=-280.4000 rot=0
+# pcb:sch GND.15 x=2666.0000 y=-280.4000 rot=0
+# pcb:sch GND.16 x=1307.1000 y=126.0000 rot=0
+# pcb:sch GND.17 x=1142.0000 y=-2160.0000 rot=0
+# pcb:sch GND.18 x=532.4000 y=164.1000 rot=0
+# pcb:sch GND.19 x=1700.8000 y=-2274.3000 rot=0
+# pcb:sch GND.20 x=1954.8000 y=-2274.3000 rot=0
+# pcb:sch J_SD x=3162.3000 y=-1663.7000 rot=0
+# pcb:sch J_SD.MSDM12MA x=1053.1000 y=-1055.1000 rot=0
+# pcb:sch MIC x=50.8000 y=-1625.6000 rot=0
+# pcb:sch Q_BAT_PROT.DMG2305UX-7 x=595.9000 y=-26.4000 rot=0
+# pcb:sch Q_PWR.DMG2305UX-7 x=37.1000 y=-204.2000 rot=0
+# pcb:sch R_SD_DAT2.R x=-201.6600 y=-2363.2000 rot=0
+# pcb:sch USB.usb-c-connector.usb-c-connector.105450-0101 x=1586.5000 y=-1601.2000 rot=0
+# pcb:sch USB.usb-esd.TPD4E05U06QDQARQ1.TPD4E05U06QDQARQ1 x=2424.7000 y=-890.0000 rot=0
+# pcb:sch U_CHARGER x=965.2000 y=-1701.8000 rot=0
+# pcb:sch U_CHARGER.U_CHARGER.BQ24075RGTR x=278.4000 y=-940.8000 rot=0
+# pcb:sch U_FUELGAUGE.U_FUELGAUGE.MAX17048XPT10 x=1205.5000 y=-2325.1000 rot=0
+# pcb:sch U_GNSS x=1371.6000 y=-88.9000 rot=0
+# pcb:sch U_GNSS.v_bckp.1 x=1108.9800 y=-153.4000 rot=0
+# pcb:sch U_MCU x=1714.5000 y=-977.9000 rot=0
+# pcb:sch U_MCU.U_ESP32.ESP32MS3MWROOMM1MN8R8 x=-864.6000 y=-369.3000 rot=0
+# pcb:sch VBAT_RAW.1 x=1083.5800 y=-2388.6000 rot=0
+# pcb:sch VBAT_RAW.2 x=639.0800 y=-89.9000 rot=0
+# pcb:sch VBAT_RAW.3 x=80.2800 y=-13.7000 rot=0
+# pcb:sch VBAT_SWITCHED.1 x=118.3800 y=-1004.3000 rot=0
+# pcb:sch VBAT_SWITCHED.2 x=512.0800 y=-1740.9000 rot=0
+# pcb:sch VBAT_SWITCHED.3 x=54.8800 y=-267.7000 rot=0
+# pcb:sch VBUS_5V.1 x=448.5800 y=-1004.3000 rot=0
+# pcb:sch VBUS_5V.2 x=664.4800 y=-1740.9000 rot=0
+# pcb:sch VBUS_5V.3 x=1947.1800 y=-1639.3000 rot=0
+# pcb:sch VBUS_5V.4 x=2328.1800 y=-1639.3000 rot=0
+# pcb:sch VDD_3V3.1 x=-338.8200 y=-191.5000 rot=0
+# pcb:sch VDD_3V3.2 x=931.1800 y=-1118.6000 rot=0
+# pcb:sch VDD_3V3.3 x=1604.2800 y=-1042.4000 rot=0
+# pcb:sch VDD_3V3.4 x=1261.3800 y=-153.4000 rot=0
+# pcb:sch VDD_3V3.5 x=981.9800 y=-2388.6000 rot=0
+# pcb:sch VDD_3V3.6 x=-199.1200 y=-2248.9000 rot=0
+# pcb:sch VDD_3V3.7 x=1947.1800 y=-2604.5000 rot=0
+# pcb:sch VDD_3V3_ANA.1 x=-529.3200 y=-750.3000 rot=0
+# pcb:sch VSYS.1 x=626.3800 y=-1004.3000 rot=0
+# pcb:sch VSYS.2 x=448.5800 y=-1740.9000 rot=0

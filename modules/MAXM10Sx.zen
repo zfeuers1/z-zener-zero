@@ -99,3 +99,14 @@ if v_bckp:
 # - Passive antenna can be connected directly to RF_IN
 # - RF_IN is internally DC-blocked and 50Ω matched
 # - For cellular applications, external SAW filter recommended before RF_IN
+
+# pcb:sch C_VBCKP.C x=854.9800 y=-26.4000 rot=0
+# pcb:sch C_VCC1.C x=588.2800 y=-26.4000 rot=0
+# pcb:sch C_VCC2.C x=448.5800 y=-26.4000 rot=0
+# pcb:sch C_VCCRF.C x=-503.9200 y=-39.1000 rot=90
+# pcb:sch R_VIO.R x=369.8400 y=-178.8000 rot=0
+# pcb:sch U_GNSS.MAXMM10SM00B x=-229.6000 y=-153.4000 rot=0
+# pcb:sch gnd.1 x=-686.8000 y=62.5000 rot=0
+# pcb:sch gnd.2 x=240.3000 y=138.7000 rot=0
+# pcb:sch v_bckp.1 x=740.6800 y=-382.0000 rot=0
+# pcb:sch vcc.5 x=473.9800 y=-394.7000 rot=0

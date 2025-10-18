@@ -131,3 +131,24 @@ if chg_status:
 Resistor(name = "R_PG", value = "100kohm 5%", package = "0402", P1 = _PG, P2 = vsys.NET)
 if pg_status:
     pg_status = Gpio(NET = _PG)
+
+# pcb:sch C_BAT.C x=461.2800 y=849.9000 rot=0
+# pcb:sch C_IN.C x=829.5800 y=837.2000 rot=0
+# pcb:sch C_SYS.C x=651.7800 y=849.9000 rot=0
+# pcb:sch R_CE.R x=1690.6400 y=710.2000 rot=0
+# pcb:sch R_CHG.R x=1119.1400 y=189.5000 rot=180
+# pcb:sch R_EN1.R x=1601.7400 y=354.6000 rot=0
+# pcb:sch R_EN2.R x=1652.5400 y=303.8000 rot=0
+# pcb:sch R_ILIM.R x=1004.8400 y=761.0000 rot=0
+# pcb:sch R_ISET.R x=1335.0400 y=875.3000 rot=0
+# pcb:sch R_PG.R x=1233.4400 y=189.5000 rot=180
+# pcb:sch R_SYSOFF.R x=1220.7400 y=875.3000 rot=0
+# pcb:sch R_TMR.R x=1093.7400 y=875.3000 rot=0
+# pcb:sch R_TS.R x=1550.9400 y=722.9000 rot=0
+# pcb:sch U_CHARGER.BQ24075RGTR x=1510.3000 y=380.0000 rot=180
+# pcb:sch gnd.2 x=1396.0000 y=1142.0000 rot=0
+# pcb:sch vbat.1 x=473.9800 y=-1.0000 rot=0
+# pcb:sch vbat.2 x=1528.0800 y=-1.0000 rot=0
+# pcb:sch vin.2 x=918.4800 y=-1.0000 rot=0
+# pcb:sch vsys.1 x=1020.0800 y=-1.0000 rot=0
+# pcb:sch vsys.2 x=664.4800 y=-1.0000 rot=0
