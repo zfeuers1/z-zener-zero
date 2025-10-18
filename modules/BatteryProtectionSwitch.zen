@@ -125,13 +125,16 @@ Resistor(name = "R_GATE_PU", value = "100kohm 5%", package = "0402",
 # Position LEFT:  SW_GATE = GND → Vgs = -3.7V → P-FET ON  → Power flows
 # Position RIGHT: SW_GATE = VBAT → Vgs = 0V   → P-FET OFF → No power
 
-# pcb:sch F_BAT.R x=-354.0600 y=-102.6000 rot=0
+# pcb:sch F_BAT.R x=344.4400 y=-851.9000 rot=90
+# pcb:sch J_BAT x=469.9000 y=-660.4000 rot=180
 # pcb:sch J_BAT.S2BMPHMKMS x=-520.7000 y=-102.6000 rot=0
-# pcb:sch Q_BAT_PROT.DMG2305UX-7 x=-229.6000 y=-102.6000 rot=90
-# pcb:sch Q_PWR.DMG2305UX-7 x=-191.5000 y=-178.8000 rot=270
-# pcb:sch R_GATE_PU.R x=-95.0600 y=-178.8000 rot=0
-# pcb:sch SW_PWR.CSSM1210TB x=-114.3000 y=-216.9000 rot=270
-# pcb:sch gnd.1 x=-495.3000 y=49.8000 rot=0
+# pcb:sch Q_BAT_PROT.DMG2305UX-7 x=227.6000 y=-839.2000 rot=180
+# pcb:sch Q_PWR.DMG2305UX-7 x=-140.7000 y=-597.9000 rot=270
+# pcb:sch R_GATE_PU.R x=141.2400 y=-585.2000 rot=0
+# pcb:sch SW_PWR.CSSM1210TB x=126.0000 y=-178.8000 rot=270
+# pcb:sch gnd.1 x=-496.3000 y=49.8000 rot=0
+# pcb:sch gnd.2 x=494.3000 y=-407.4000 rot=0
 # pcb:sch vbat_in.1 x=-495.3200 y=-255.0000 rot=0
 # pcb:sch vbat_out.1 x=37.0800 y=-255.0000 rot=0
-
+# pcb:sch vbat_raw.1 x=-46.7200 y=-801.1000 rot=0
+# pcb:sch vbat_switched.1 x=-275.3200 y=-801.1000 rot=0
