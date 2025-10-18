@@ -3,6 +3,8 @@
 **Status:** ✅ Production Ready  
 **Revision:** A
 
+A compact wearable device that continuously records audio, captures GPS location, and monitors battery status. Records 30-second audio clips (16kHz PCM), uploads them to a server via WiFi, and saves backups to SD card. Built with ESP32-S3, MAX-M10S GPS, and powered by a rechargeable LiPo battery with USB-C charging.
+
 ---
 
 ## 📚 Documentation (3 Files Only!)
