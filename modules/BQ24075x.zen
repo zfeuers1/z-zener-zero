@@ -56,7 +56,7 @@ BQ24075(
     OUT_1 = vsys.NET,  # Both OUT pins connected to system
     OUT_2 = vsys.NET,
     VSS = gnd.NET,  # Ground
-    GND = gnd.NET,  # Also connect thermal pad GND
+    GND = gnd.NET,  # Thermal pad - CRITICAL: requires thermal vias to ground plane
     # Control inputs
     n_CE = _CE,  # Charge enable (active low)
     EN1 = _EN1,  # Input current limit control
@@ -71,6 +71,12 @@ BQ24075(
     n_CHG = _CHG,  # Charging status (open-drain)
     n_PGOOD = _PG,  # Power good status (open-drain)
 )
+
+# THERMAL MANAGEMENT REQUIREMENTS:
+# BQ24075 thermal pad (GND pin) must connect to ground plane with thermal vias
+# At 800mA charge current: Power dissipation ≈ 400-600mW (depends on VIN-VBAT delta)
+# Required: Minimum 6-9× thermal vias (0.3mm diameter) under thermal pad
+# Add copper pour on ground plane for heat dissipation
 
 # Input capacitor (1µF-10µF ceramic per datasheet)
 Capacitor(name = "C_IN", value = "10uF", voltage = "10V", package = "0805", P1 = vin.NET, P2 = gnd.NET)
@@ -106,12 +112,16 @@ if ce:
     ce = Gpio(NET = _CE)
 
 # EN1 and EN2 for USB current limit control
-# EN1=0, EN2=0: 100mA (USB100)
-# EN1=1, EN2=0: 500mA (USB500)  
-# EN1=0, EN2=1: Set by ILIM resistor
-# EN1=1, EN2=1: Standby (suspend)
-Resistor(name = "R_EN1", value = "100kohm 5%", package = "0402", P1 = _EN1, P2 = gnd.NET)
-Resistor(name = "R_EN2", value = "100kohm 5%", package = "0402", P1 = _EN2, P2 = gnd.NET)
+# EN1=0, EN2=0: 100mA (USB100) - too low for most applications
+# EN1=1, EN2=0: 500mA (USB500) - standard USB 2.0 compliance
+# EN1=0, EN2=1: Set by ILIM resistor - for USB-C or wall adapter with higher current
+# EN1=1, EN2=1: Standby (USB suspend mode)
+#
+# Configuration: EN1=0, EN2=1 to use ILIM resistor (1.3A max)
+# This allows charging at full ILIM rate when sufficient input current available
+# For strict USB 2.0 compliance (500mA limit), change EN2 to pull-down
+Resistor(name = "R_EN1", value = "100kohm 5%", package = "0402", P1 = _EN1, P2 = gnd.NET)  # EN1 = 0
+Resistor(name = "R_EN2", value = "100kohm 5%", package = "0402", P1 = _EN2, P2 = vin.NET)  # EN2 = 1 (ILIM mode)
 if en1:
     en1 = Gpio(NET = _EN1)
 if en2:
@@ -122,13 +132,13 @@ Resistor(name = "R_SYSOFF", value = "100kohm 5%", package = "0402", P1 = _SYSOFF
 if sysoff:
     sysoff = Gpio(NET = _SYSOFF)
 
-# CHG status pull-up (for LED or processor monitoring)
-Resistor(name = "R_CHG", value = "100kohm 5%", package = "0402", P1 = _CHG, P2 = vsys.NET)
+# CHG and PGOOD status outputs (open-drain, active low)
+# NOTE: Pull-up resistors MUST be added externally to appropriate voltage rail
+# WARNING: Do NOT pull to VSYS if VSYS can exceed MCU VDD + 0.3V
+#          For ESP32 (VDD=3.3V): Pull to 3.3V rail, NOT to VSYS (which can be 5V from USB)
+# Recommended: 10kΩ-100kΩ pull-up to MCU VDD rail
 if chg_status:
     chg_status = Gpio(NET = _CHG)
-
-# PGOOD status pull-up (for LED or processor monitoring)
-Resistor(name = "R_PG", value = "100kohm 5%", package = "0402", P1 = _PG, P2 = vsys.NET)
 if pg_status:
     pg_status = Gpio(NET = _PG)
 

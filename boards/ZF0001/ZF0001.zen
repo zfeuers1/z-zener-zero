@@ -96,6 +96,13 @@ UsbC(
     }
 )
 
+# USB bulk input capacitor for supply stability
+# Protects against voltage droop during WiFi TX pulses and ESP32 load transients
+# USB cable has ~200nH/meter inductance - bulk cap reduces voltage sag
+# 47µF provides low-ESR energy reservoir for high-frequency current demands
+Capacitor(name = "C_BULK_VBUS", value = "47uF", voltage = "10V", package = "0805",
+          P1 = VBUS_5V.NET, P2 = GND.NET)
+
 # ========================================
 # Battery Protection and Power Switch
 # ========================================
@@ -134,11 +141,22 @@ BQ24075(
     }
 )
 
+# Status signal pull-ups (pulled to VDD_3V3 to match ESP32 GPIO voltage domain)
+# VSYS can reach 5V from USB; pulling to VDD_3V3 keeps signals within GPIO spec
+Resistor(name = "R_CHG_STAT", value = "100kohm 5%", package = "0402",
+         P1 = chg_stat, P2 = VDD_3V3.NET)
+Resistor(name = "R_PG_STAT", value = "100kohm 5%", package = "0402",
+         P1 = pg_stat, P2 = VDD_3V3.NET)
+
 # ========================================
 # 3.3V Buck-Boost Converter (TPS63070)
 # ========================================
 # Buck-boost powered from VSYS (supports full battery voltage range 2.5V-5V)
 # EN and PG pins handled internally by module (always-on configuration)
+#
+# Battery under-voltage protection:
+# TPS63070 operates down to 2.0V, but Li-Ion cells should not discharge below 3.0V
+# Firmware must monitor MAX17048 SOC and shutdown at 5% (~3.2V) to preserve battery life
 TPS63070(
     name = "U_BUCKBOOST",
     vin = VSYS,
@@ -152,6 +170,7 @@ TPS63070(
 # ========================================
 # ESP32-S3 Microcontroller
 # ========================================
+# Power sequencing: EN has 10ms RC delay ensuring VDD_3V3 is stable before ESP32 starts
 uart_gnss = Uart("UART_GNSS")
 spi_sd = Spi("SPI_SD")
 i2c_main = I2c("I2C_MAIN")
@@ -187,25 +206,37 @@ ESP32S3WROOM1(
     }
 )
 
-# ESP32 boot button pull-up
-Resistor(name = "R_BOOT", value = "10kohm 5%", package = "0402", 
+# ESP32 boot button circuit
+# Boot button with ESD protection series resistor
+_boot_sw = Net("BOOT_SW")  # Button side of ESD resistor
+
+Resistor(name = "R_BOOT_PU", value = "10kohm 5%", package = "0402", 
          P1 = VDD_3V3.NET, P2 = esp_boot)
 
-# Boot button (tactile switch)
+# ESD series resistor (limits current during ESD events)
+Resistor(name = "R_BOOT_ESD", value = "470ohm 5%", package = "0402",
+         P1 = _boot_sw, P2 = esp_boot)
+
 TactileButton(
     name = "SW_BOOT",
-    P1 = esp_boot,
+    P1 = _boot_sw,
     P2 = GND.NET,
     properties = {
         "collapse": True
     }
 )
 
-# ESP32 reset button (EN pin)
+# ESP32 reset button circuit
+# Reset button with ESD protection series resistor
 # Note: EN pin already has pull-up in ESP32S3WROOM1x module
+_reset_sw = Net("RESET_SW")  # Button side of ESD resistor
+
+Resistor(name = "R_RESET_ESD", value = "470ohm 5%", package = "0402",
+         P1 = _reset_sw, P2 = esp_en)
+
 TactileButton(
     name = "SW_RESET",
-    P1 = esp_en,
+    P1 = _reset_sw,
     P2 = GND.NET,
     properties = {
         "collapse": True
@@ -215,18 +246,8 @@ TactileButton(
 # ========================================
 # I2C Bus Configuration
 # ========================================
-# I2C pull-up resistors (REQUIRED for open-drain bus)
-# Using 10kΩ for single device (MAX17048) to reduce power consumption
-# Continuous current draw: 3.3V/10k = 0.33mA (vs 0.7mA with 4.7k) = saves 0.37mA
-# Over 18hr idle: saves ~6.7mAh (~0.4% battery capacity)
-# Pull-ups to VDD_3V3 to ensure GPIO input voltage stays within spec (VDD+0.3V max)
-#
-# I2C CLOCK SPEED SPECIFICATION:
-# - 10kΩ pull-ups with ~15pF bus capacitance → t_rise = 330ns
-# - Standard mode (100kHz): Fully compliant (t_rise < 1000ns required) ✓
-# - Fast mode (400kHz): Marginal (t_rise < 300ns required, actual 330ns)
-# RECOMMENDED: Use 100kHz I2C clock in firmware for reliable operation
-# For 400kHz: Reduce pull-ups to 4.7kΩ (t_rise = 155ns, increases power by 0.37mA)
+# Pull-up resistors: 10kΩ for low power consumption (0.33mA vs 0.7mA with 4.7kΩ)
+# I2C clock: Use 100kHz in firmware (10kΩ pull-ups give 330ns rise time, marginal for 400kHz)
 Resistor(name = "R_I2C_SDA", value = "10kohm 5%", package = "0402",
          P1 = i2c_main.SDA, P2 = VDD_3V3.NET)
 Resistor(name = "R_I2C_SCL", value = "10kohm 5%", package = "0402",
@@ -235,15 +256,12 @@ Resistor(name = "R_I2C_SCL", value = "10kohm 5%", package = "0402",
 # ========================================
 # Fuel Gauge (MAX17048)
 # ========================================
-# MAX17048 VCC powered from VBAT_RAW via voltage divider to maintain state when power is OFF
-# Voltage divider: 100kΩ + 180kΩ creates 2.7V from 4.2V battery (safe for 3.6V max spec)
-# I2C pins are 3.6V tolerant per datasheet, so pull-ups to VDD_3V3 are safe
-# This preserves learned capacity across power cycles for accurate fuel gauging
+# VCC powered from VBAT_RAW via voltage divider to maintain state when device is off
+# Voltage divider: 100kΩ + 180kΩ → 2.7V from 4.2V battery (within 3.6V max spec)
+# Preserves learned battery capacity across power cycles for accurate SOC tracking
 
-_FG_VCC = Net("FG_VCC")  # Divided voltage for fuel gauge VCC
+_FG_VCC = Net("FG_VCC")
 
-# Voltage divider: VBAT_RAW → 100kΩ → FG_VCC → 180kΩ → GND
-# V_FG = VBAT × (180k / (100k + 180k)) = 4.2V × 0.643 = 2.7V
 Resistor(name = "R_FG_DIV_TOP", value = "100kohm 5%", package = "0402",
          P1 = VBAT_RAW.NET, P2 = _FG_VCC)
 Resistor(name = "R_FG_DIV_BOT", value = "180kohm 5%", package = "0402",
@@ -253,8 +271,8 @@ Capacitor(name = "C_FG_VCC", value = "1uF", voltage = "10V", package = "0402",
 
 MAX17048(
     name = "U_FUELGAUGE",
-    vcc = Power(NET = _FG_VCC),  # Powered from divided VBAT_RAW (always-on)
-    vbat = VBAT_RAW,  # Monitor battery voltage on CELL pin
+    vcc = Power(NET = _FG_VCC),
+    vbat = VBAT_RAW,
     gnd = GND,
     i2c = i2c_main,
     alert = fg_alert,
@@ -373,14 +391,19 @@ AnalogMicInput(
 # User Interface
 # ========================================
 
-# Record Button (momentary push button)
-Resistor(name = "R_BTN_RECORD", value = "10kohm 5%", package = "0402",
+# Record Button circuit with ESD protection
+_record_sw = Net("RECORD_SW")  # Button side of ESD resistor
+
+Resistor(name = "R_BTN_RECORD_PU", value = "10kohm 5%", package = "0402",
          P1 = VDD_3V3.NET, P2 = btn_record)
 
-# Record button (tactile switch)
+# ESD series resistor (limits current during ESD events from user contact)
+Resistor(name = "R_BTN_RECORD_ESD", value = "470ohm 5%", package = "0402",
+         P1 = _record_sw, P2 = btn_record)
+
 TactileButton(
     name = "SW_RECORD",
-    P1 = btn_record,
+    P1 = _record_sw,
     P2 = GND.NET,
     properties = {
         "collapse": True

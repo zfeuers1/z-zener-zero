@@ -102,21 +102,49 @@ Capacitor(name = "C_OPAMP", value = "100nF", voltage = "10V", package = "0402", 
 Resistor(name = "R_GAIN1", value = "19kohm 1%", package = "0402", P1 = _OPAMP_OUT, P2 = _OPAMP_NEG)
 Resistor(name = "R_GAIN2", value = "1kohm 1%", package = "0402", P1 = _OPAMP_NEG, P2 = _OPAMP_VREF)
 
-# Output coupling capacitor to ADC
-# Blocks DC bias, centers signal around ADC reference (0V or VDD/2)
-Capacitor(name = "C_OUT", value = "1uF", voltage = "10V", package = "0402", P1 = _OPAMP_OUT, P2 = mic_out.NET)
+# Internal nets for output stage
+_OPAMP_ISO = Net("_OPAMP_ISO")  # After isolation resistor
 
-# ADC input pull-down to establish 0V DC level
-# Using 1kΩ instead of 10kΩ to minimize voltage divider effect with ESP32 ADC input impedance (~45kΩ)
-# This preserves signal amplitude: V_ADC = V_OPAMP × (45k/(45k+1k)) = 0.98 × V_OPAMP (only 2% loss)
-Resistor(name = "R_OUT", value = "1kohm 5%", package = "0402", P1 = mic_out.NET, P2 = gnd.NET)
+# Op-amp output isolation resistor (CRITICAL for stability)
+# Isolates op-amp from large capacitive load (C_OUT = 1µF)
+# OPA344 can drive 100pF max without isolation; 1µF requires series R for stability
+# 50Ω provides isolation while maintaining signal integrity
+Resistor(name = "R_ISO", value = "50ohm 5%", package = "0402", 
+         P1 = _OPAMP_OUT, P2 = _OPAMP_ISO)
+
+# Output coupling capacitor to ADC
+# Blocks DC bias, centers signal around ADC reference (0V)
+Capacitor(name = "C_OUT", value = "1uF", voltage = "10V", package = "0402", 
+          P1 = _OPAMP_ISO, P2 = mic_out.NET)
+
+# Anti-aliasing low-pass filter + ADC input protection (CRITICAL)
+# R_AA + C_AA serve multiple purposes:
+#   1. Anti-aliasing: Prevents high-frequency noise from aliasing into audio band
+#      Sampling rate: 16kHz → Nyquist: 8kHz → Filter cutoff: ~10kHz
+#      fc = 1/(2π × 1kΩ × 15nF) ≈ 10.6kHz (blocks noise above Nyquist)
+#   2. Overvoltage protection: 1kΩ limits current if VDD_3V3_ANA rises before MCU VDD
+#      I_max = (3.3V - 0.6V) / 1kΩ = 2.7mA (safe for GPIO internal clamp diodes)
+#   3. DC bias: Pull-down establishes 0V DC level at ADC input
+Resistor(name = "R_AA", value = "1kohm 5%", package = "0402", 
+         P1 = mic_out.NET, P2 = gnd.NET)
+Capacitor(name = "C_AA", value = "15nF", voltage = "10V", package = "0402",
+          P1 = mic_out.NET, P2 = gnd.NET)
 
 # Notes:
 # - Gain of 20 brings 10-100mV mic signal to 200mV-2V (optimal for 12-bit ADC)
-# - Op-amp biased at VDD/2 for maximum output swing
+# - Op-amp biased at VDD/2 = 1.65V for maximum output swing
 # - OPA344 rail-to-rail op-amp: perfect for single-supply 3.3V operation
 # - Low-pass filtering at ~16kHz handled by ADC sampling (needs software decimation)
 # - For higher/lower gain, change R_GAIN1 (gain = 1 + R_GAIN1/1k)
+#
+# CLIPPING ANALYSIS:
+# OPA344 output swing: Rail-to-rail minus 25mV → 0.025V to 3.275V
+# With 1.65V bias: Max swing = ±1.6V from bias (before clipping)
+# With gain=20: Max input = ±1.6V / 20 = ±80mV before output clipping
+# Typical speech: 10-50mV RMS, peaks to 100-150mV
+# WARNING: Loud speech (>80mV peak) will cause output clipping/distortion
+# For higher headroom: Reduce gain to 10 (R_GAIN1 = 9kΩ) or use higher supply voltage
+# Input amplitude should be limited to <80mV peak to avoid distortion
 
 # pcb:sch C_AC.C x=1782.0800 y=-813.8000 rot=90
 # pcb:sch C_BIAS.C x=2251.9800 y=-978.9000 rot=0

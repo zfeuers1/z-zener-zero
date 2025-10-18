@@ -53,7 +53,7 @@ TPS63070(
     VIN_1 = vin.NET,
     VIN_2 = vin.NET,
     GND = gnd.NET,
-    PGND = gnd.NET,
+    PGND = gnd.NET,  # CRITICAL: Thermal pad - requires thermal vias to ground plane
     L1 = _L1,
     L2 = _L2,
     FB = _FB,
@@ -66,6 +66,14 @@ TPS63070(
     VOUT_1 = vout.NET,
     VOUT_2 = vout.NET,
 )
+
+# THERMAL MANAGEMENT REQUIREMENTS (CRITICAL FOR LAYOUT):
+# TPS63070 thermal pad (PGND) must connect to ground plane with thermal vias
+# At 2A output: Power dissipation ≈ 730mW (worst case at VIN=3V, 90% efficiency)
+# Required: Minimum 9× thermal vias (0.3mm diameter) under thermal pad
+# With proper thermal vias: θJA ≈ 40°C/W → ΔT = 29°C (Tj ≈ 54°C at 25°C ambient) ✓
+# Without thermal vias: θJA ≈ 80°C/W → ΔT = 58°C (Tj ≈ 83°C - still OK but poor margin)
+# Add copper pour connected to thermal pad on top and bottom layers for heat spreading
 
 # Input capacitor (10µF ceramic, X5R or better)
 Capacitor(name = "C_IN", value = "10uF", voltage = "25V", package = "0805",
@@ -101,6 +109,10 @@ Capacitor(name = "C_VAUX", value = "100nF", voltage = "10V", package = "0402",
 # VOUT = 0.8V * (1 + R_FBT / R_FBB)  [V_FB = 0.8V per datasheet]
 # Equation from datasheet: R1 = R2 * (VOUT / 0.8V - 1)
 # For 3.3V: R_FBT = 100k * (3.3/0.8 - 1) = 100k * 3.125 = 312.5k → use 316kΩ
+#
+# LOOP COMPENSATION: TPS63070 uses internal compensation network
+# No external compensation components required (per datasheet section 9.2.2)
+# Feedback resistors set only DC output voltage, not loop dynamics
 R_FBB_VALUE = "100kohm 1%"
 if config_vout == 3.3:
     R_FBT_VALUE = "316kohm 1%"
