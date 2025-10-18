@@ -64,6 +64,26 @@ VDD_3V3_ANA = Power("VDD_3V3_ANA")  # Filtered 3.3V for analog circuits
 GND = Ground("GND")
 
 # ========================================
+# GPIO Signals
+# ========================================
+# Define all GPIO signals at top level so they can be shared between MCU and components
+esp_en = Gpio("ESP_EN")
+esp_boot = Gpio("ESP_BOOT")
+mic_in = Gpio("MIC_IN")
+btn_record = Gpio("BTN_RECORD")
+led_r = Gpio("LED_R")
+led_g = Gpio("LED_G")
+led_b = Gpio("LED_B")
+chg_stat = Gpio("CHG_STAT")
+pg_stat = Gpio("PG_STAT")
+fg_alert = Gpio("FG_ALERT")
+sd_detect = Gpio("SD_DETECT")
+buckboost_en = Gpio("BUCKBOOST_EN")
+buckboost_pg = Gpio("BUCKBOOST_PG")
+gnss_reset = Gpio("GNSS_RESET")
+gnss_pps = Gpio("GNSS_PPS")
+
+# ========================================
 # USB-C Connector (with ESD protection)
 # ========================================
 usb_data = Usb2("USB_DATA")
@@ -120,10 +140,12 @@ PMosfet(
 # When switch connects gate to GND, P-FET conducts (ON)
 # When switch connects gate to VBAT_RAW, P-FET is off (OFF)
 
+_sw_gate = Net("SW_GATE")
+
 SlideSwitch(
     name = "SW_PWR",
     P1 = GND.NET,              # Switch position 1 to GND (on)
-    P2 = Net("SW_GATE"),       # Common to gate control
+    P2 = _sw_gate,             # Common to gate control
     P3 = VBAT_RAW.NET,         # Switch position 2 to VBAT_RAW (off)
     MH1 = GND.NET,  # Mounting hole
     MH2 = GND.NET,  # Mounting hole
@@ -135,13 +157,13 @@ PMosfet(
     name = "Q_PWR",
     S = VBAT_RAW.NET,          # Source from protected battery
     D = VBAT_SWITCHED.NET,     # Drain to charger battery input
-    G = Net("SW_GATE"),        # Gate controlled by slide switch
+    G = _sw_gate,              # Gate controlled by slide switch
 )
 
 # Gate pull-up resistor for off state (when switch is open)
 # Pulls gate to source voltage to keep MOSFET off
 Resistor(name = "R_GATE_PU", value = "100kohm 5%", package = "0402",
-         P1 = VBAT_RAW.NET, P2 = Net("SW_GATE"))
+         P1 = VBAT_RAW.NET, P2 = _sw_gate)
 
 # ========================================
 # Battery Charger (BQ24075)
@@ -153,8 +175,8 @@ BQ24075(
     vbat = VBAT_SWITCHED,  # Switched battery input
     vsys = VSYS,           # System output (always on when USB or battery)
     gnd = GND,
-    chg_status = Gpio("CHG_STAT"),
-    pg_status = Gpio("PG_STAT"),
+    chg_status = chg_stat,
+    pg_status = pg_stat,
     properties = {
         "collapse": True
     }
@@ -169,8 +191,8 @@ TPS63070(
     vin = VSYS,
     vout = VDD_3V3,
     gnd = GND,
-    en = Gpio("BUCKBOOST_EN"),  # Enable control
-    pg = Gpio("BUCKBOOST_PG"),  # Power good output
+    en = buckboost_en,  # Enable control
+    pg = buckboost_pg,  # Power good output
     properties = {
         "collapse": True
     }
@@ -178,7 +200,7 @@ TPS63070(
 
 # Buck-boost enable pull-up for default-on operation
 Resistor(name = "R_BUCKBOOST_EN", value = "100kohm 5%", package = "0402",
-         P1 = VSYS.NET, P2 = Gpio("BUCKBOOST_EN").NET)
+         P1 = VSYS.NET, P2 = buckboost_en)
 
 # ========================================
 # I2C Bus Configuration
@@ -205,7 +227,7 @@ MAX17048(
     vbat = VBAT_RAW,  # Monitor battery voltage on CELL pin
     gnd = GND,
     i2c = i2c_main,
-    alert = Gpio("FG_ALERT"),
+    alert = fg_alert,
     properties = {
         "collapse": True
     }
@@ -222,22 +244,22 @@ ESP32S3WROOM1(
     vdd_3v3 = VDD_3V3,
     gnd = GND,
     usb = usb_data,
-    en = Gpio("ESP_EN"),
-    gpio0 = Gpio("ESP_BOOT"),  # Boot button
+    en = esp_en,
+    gpio0 = esp_boot,  # Boot button
     # GPIO assignments
-    gpio1 = Gpio("MIC_IN"),           # GPIO/ADC input from microphone
-    gpio2 = Gpio("BTN_RECORD"),       # Record button
-    gpio4 = Gpio("LED_R"),            # RGB LED - Red
-    gpio5 = Gpio("LED_G"),            # RGB LED - Green  
-    gpio6 = Gpio("LED_B"),            # RGB LED - Blue
-    gpio7 = Gpio("CHG_STAT"),         # Charger status
-    gpio8 = Gpio("PG_STAT"),          # Power good status
-    gpio9 = Gpio("FG_ALERT"),         # Fuel gauge alert
+    gpio1 = mic_in,           # GPIO/ADC input from microphone
+    gpio2 = btn_record,       # Record button
+    gpio4 = led_r,            # RGB LED - Red
+    gpio5 = led_g,            # RGB LED - Green  
+    gpio6 = led_b,            # RGB LED - Blue
+    gpio7 = chg_stat,         # Charger status
+    gpio8 = pg_stat,          # Power good status
+    gpio9 = fg_alert,         # Fuel gauge alert
     gpio10 = Gpio(NET = spi_sd.CS),   # SD card chip select
     gpio11 = Gpio(NET = spi_sd.MOSI), # SD card MOSI
     gpio12 = Gpio(NET = spi_sd.CLK),  # SD card clock
     gpio13 = Gpio(NET = spi_sd.MISO), # SD card MISO
-    gpio14 = Gpio("SD_DETECT"),       # SD card detect
+    gpio14 = sd_detect,       # SD card detect
     gpio15 = Gpio(NET = uart_gnss.TX),    # ESP32 TX → GNSS RX (FIXED)
     gpio16 = Gpio(NET = uart_gnss.RX),    # ESP32 RX ← GNSS TX (FIXED)
     # I2C for fuel gauge
@@ -250,12 +272,12 @@ ESP32S3WROOM1(
 
 # ESP32 boot button pull-up
 Resistor(name = "R_BOOT", value = "10kohm 5%", package = "0402", 
-         P1 = VDD_3V3.NET, P2 = Gpio("ESP_BOOT").NET)
+         P1 = VDD_3V3.NET, P2 = esp_boot)
 
 # Boot button (tactile switch)
 TactileButton(
     name = "SW_BOOT",
-    P1 = Gpio("ESP_BOOT").NET,
+    P1 = esp_boot,
     P2 = GND.NET,
     properties = {
         "collapse": True
@@ -266,7 +288,7 @@ TactileButton(
 # Note: EN pin already has pull-up in ESP32S3WROOM1x module
 TactileButton(
     name = "SW_RESET",
-    P1 = Gpio("ESP_EN").NET,
+    P1 = esp_en,
     P2 = GND.NET,
     properties = {
         "collapse": True
@@ -285,8 +307,8 @@ MAXM10S(
     # v_bckp intentionally disconnected - VBAT_RAW (4.2V max) exceeds V_BCKP spec (3.6V max)
     # GNSS will cold start each time (~30s TTFF) but prevents potential module damage
     # To enable: add voltage divider: VBAT_RAW → 100k → V_BCKP → 180k → GND (outputs 2.7V)
-    reset_n = Gpio("GNSS_RESET"),
-    timepulse = Gpio("GNSS_PPS"),
+    reset_n = gnss_reset,
+    timepulse = gnss_pps,
     properties = {
         "collapse": True
     }
@@ -315,7 +337,7 @@ AnalogMicInput(
     name = "MIC",
     vdd_3v3 = VDD_3V3_ANA,  # Use filtered analog rail
     gnd = GND,
-    mic_out = Analog(NET = Gpio("MIC_IN").NET),
+    mic_out = Analog(NET = mic_in),
     properties = {
         "collapse": True
     }
@@ -324,6 +346,10 @@ AnalogMicInput(
 # ========================================
 # MicroSD Card Socket
 # ========================================
+# SD card nets for unused data lines
+_sd_dat1 = Net("SD_DAT1")
+_sd_dat2 = Net("SD_DAT2")
+
 MicroSDSocket(
     name = "J_SD",
     VDD = VDD_3V3.NET,
@@ -332,9 +358,9 @@ MicroSDSocket(
     CMD = spi_sd.MOSI,
     CD_DAT3 = spi_sd.CS,  # DAT3 in SD mode, CS in SPI mode
     DAT0 = spi_sd.MISO,
-    DAT1 = Net("SD_DAT1"),  # Not used in SPI mode, but needs pull-up
-    DAT2 = Net("SD_DAT2"),  # Not used in SPI mode, but needs pull-up
-    CD1 = Gpio("SD_DETECT").NET,
+    DAT1 = _sd_dat1,  # Not used in SPI mode, but needs pull-up
+    DAT2 = _sd_dat2,  # Not used in SPI mode, but needs pull-up
+    CD1 = sd_detect,
     # All 7 GND pins connected to ground
     GND_1 = GND.NET,
     GND_2 = GND.NET,
@@ -352,12 +378,12 @@ MicroSDSocket(
 Resistor(name = "R_SD_CS", value = "10kohm 5%", package = "0402", 
          P1 = spi_sd.CS, P2 = VDD_3V3.NET)
 Resistor(name = "R_SD_DAT1", value = "47kohm 5%", package = "0402",
-         P1 = Net("SD_DAT1"), P2 = VDD_3V3.NET)
+         P1 = _sd_dat1, P2 = VDD_3V3.NET)
 Resistor(name = "R_SD_DAT2", value = "47kohm 5%", package = "0402",
-         P1 = Net("SD_DAT2"), P2 = VDD_3V3.NET)
+         P1 = _sd_dat2, P2 = VDD_3V3.NET)
 # Card detect pull-up (CD switch pulls to GND when card inserted)
 Resistor(name = "R_SD_DETECT", value = "47kohm 5%", package = "0402",
-         P1 = Gpio("SD_DETECT").NET, P2 = VDD_3V3.NET)
+         P1 = sd_detect, P2 = VDD_3V3.NET)
 
 # ========================================
 # User Interface
@@ -365,43 +391,47 @@ Resistor(name = "R_SD_DETECT", value = "47kohm 5%", package = "0402",
 
 # Record Button (momentary push button)
 Resistor(name = "R_BTN_RECORD", value = "10kohm 5%", package = "0402",
-         P1 = VDD_3V3.NET, P2 = Gpio("BTN_RECORD").NET)
+         P1 = VDD_3V3.NET, P2 = btn_record)
 
 # Record button (tactile switch)
 TactileButton(
     name = "SW_RECORD",
-    P1 = Gpio("BTN_RECORD").NET,
+    P1 = btn_record,
     P2 = GND.NET,
     properties = {
         "collapse": True
     }
 )
 
-# RGB LED (common-cathode configuration - FIXED)
+# RGB LED (common-cathode configuration)
 # Red LED: GPIO → R → A, K → GND
+_led_r_anode = Net("LED_R_ANODE")
 Resistor(name = "R_LED_R", value = "150ohm 5%", package = "0402",
-         P1 = Gpio("LED_R").NET, P2 = Net("LED_R_ANODE"))
+         P1 = led_r, P2 = _led_r_anode)
 Led(name = "LED_R", color = "red", package = "0603",
-    A = Net("LED_R_ANODE"), K = GND.NET)
+    A = _led_r_anode, K = GND)
 
 # Green LED (higher Vf, smaller resistor)
+_led_g_anode = Net("LED_G_ANODE")
 Resistor(name = "R_LED_G", value = "47ohm 5%", package = "0402",
-         P1 = Gpio("LED_G").NET, P2 = Net("LED_G_ANODE"))
+         P1 = led_g, P2 = _led_g_anode)
 Led(name = "LED_G", color = "green", package = "0603",
-    A = Net("LED_G_ANODE"), K = GND.NET)
+    A = _led_g_anode, K = GND)
 
 # Blue LED
+_led_b_anode = Net("LED_B_ANODE")
 Resistor(name = "R_LED_B", value = "47ohm 5%", package = "0402",
-         P1 = Gpio("LED_B").NET, P2 = Net("LED_B_ANODE"))
+         P1 = led_b, P2 = _led_b_anode)
 Led(name = "LED_B", color = "blue", package = "0603",
-    A = Net("LED_B_ANODE"), K = GND.NET)
+    A = _led_b_anode, K = GND)
 
 # Power indicator LED (with current-limiting resistor)
 # Connected to VDD_3V3 for constant brightness
+_led_pwr_anode = Net("LED_PWR_ANODE")
 Resistor(name = "R_LED_PWR", value = "150ohm 5%", package = "0402",
-         P1 = VDD_3V3.NET, P2 = Net("LED_PWR_ANODE"))
+         P1 = VDD_3V3.NET, P2 = _led_pwr_anode)
 Led(name = "LED_PWR", color = "green", package = "0603",
-    A = Net("LED_PWR_ANODE"), K = GND.NET)
+    A = _led_pwr_anode, K = GND)
 
 # ========================================
 # Bulk Decoupling Capacitors
@@ -425,37 +455,42 @@ TestPoint(name = "TP_I2C_SDA", variant = "Pad_D1.0mm", P1 = i2c_main.SDA)
 TestPoint(name = "TP_I2C_SCL", variant = "Pad_D1.0mm", P1 = i2c_main.SCL)
 TestPoint(name = "TP_GND", variant = "Pad_D1.0mm", P1 = GND.NET)
 
-# pcb:sch GND.1 x=1053.1000 y=-2236.2000 rot=0
 # pcb:sch GND.2 x=-1220.2000 y=-2325.1000 rot=0
-# pcb:sch GND.3 x=341.9000 y=-2033.0000 rot=0
+# pcb:sch GND.3 x=151.4000 y=-1969.5000 rot=0
 # pcb:sch GND.4 x=-991.6000 y=-2325.1000 rot=0
+# pcb:sch GND.5 x=532.4000 y=-1613.9000 rot=0
 # pcb:sch GND.6 x=-445.5000 y=-2248.9000 rot=0
 # pcb:sch GND.7 x=-648.7000 y=-2248.9000 rot=0
 # pcb:sch GND.8 x=-1613.9000 y=-2515.6000 rot=0
-# pcb:sch GND.10 x=-153.4000 y=-2083.8000 rot=0
+# pcb:sch GND.12 x=1396.0000 y=-2109.2000 rot=0
 # pcb:sch J_BAT x=-1435.1000 y=-2781.3000 rot=90
 # pcb:sch J_BAT.S2BMPHMKMS x=-1321.8000 y=-2871.2000 rot=90
-# pcb:sch J_SD x=419.1000 y=-2489.2000 rot=180
+# pcb:sch J_SD x=215.9000 y=-1905.0000 rot=180
 # pcb:sch J_SD.MSDM12MA x=1053.1000 y=-1055.1000 rot=0
-# pcb:sch MIC x=977.9000 y=-2768.6000 rot=180
+# pcb:sch LED_R.LED x=888.0000 y=-1885.6800 rot=180
+# pcb:sch MIC x=1181.1000 y=-2692.4000 rot=180
 # pcb:sch Q_BAT_PROT.DMG2305UX-7 x=-1296.4000 y=-3176.0000 rot=90
 # pcb:sch Q_PWR.DMG2305UX-7 x=-572.5000 y=-3176.0000 rot=90
+# pcb:sch R_LED_R.R x=788.9400 y=-1906.0000 rot=270
+# pcb:sch SW_BOOT x=1193.8000 y=-2476.5000 rot=0
 # pcb:sch SW_PWR.CSSM1210TB x=-1118.6000 y=-2553.7000 rot=270
-# pcb:sch USB x=1054.1000 y=-2527.3000 rot=0
+# pcb:sch SW_RECORD x=1193.8000 y=-2565.4000 rot=0
+# pcb:sch SW_RESET x=1193.8000 y=-2387.6000 rot=0
+# pcb:sch USB x=1181.1000 y=-2298.7000 rot=0
 # pcb:sch USB.usb-esd.TPD4E05U06QDQARQ1.TPD4E05U06QDQARQ1 x=-915.4000 y=-1652.0000 rot=180
 # pcb:sch U_BUCKBOOST x=-596.9000 y=-2717.8000 rot=90
 # pcb:sch U_CHARGER x=-304.8000 y=-2527.3000 rot=90
 # pcb:sch U_CHARGER.U_CHARGER.BQ24075RGTR x=278.4000 y=-940.8000 rot=0
 # pcb:sch U_FUELGAUGE x=-927.1000 y=-2717.8000 rot=90
 # pcb:sch U_FUELGAUGE.U_FUELGAUGE.MAX17048XPT10 x=1205.5000 y=-2325.1000 rot=0
-# pcb:sch U_GNSS x=330.2000 y=-2743.2000 rot=180
-# pcb:sch U_GNSS.v_bckp.1 x=232.6800 y=-2934.7000 rot=0
-# pcb:sch U_MCU x=749.3000 y=-2882.9000 rot=180
+# pcb:sch U_GNSS x=-50.8000 y=-2222.5000 rot=180
+# pcb:sch U_GNSS.v_bckp.1 x=42.1800 y=-2833.1000 rot=0
+# pcb:sch U_MCU x=774.7000 y=-2692.4000 rot=180
 # pcb:sch U_MCU.U_ESP32.ESP32MS3MWROOMM1MN8R8 x=-864.6000 y=-369.3000 rot=0
 # pcb:sch VBAT_RAW.1 x=-973.8200 y=-3137.9000 rot=0
 # pcb:sch VBAT_SWITCHED.1 x=-313.4200 y=-3112.5000 rot=0
 # pcb:sch VBUS_5V.2 x=232.6800 y=-3112.5000 rot=0
 # pcb:sch VDD_3V3.2 x=-719.8200 y=-2896.6000 rot=0
-# pcb:sch VDD_3V3.3 x=537.4800 y=-2934.7000 rot=0
-# pcb:sch VDD_3V3_ANA.1 x=-237.2200 y=-2261.6000 rot=0
+# pcb:sch VDD_3V3.3 x=258.0800 y=-2833.1000 rot=0
+# pcb:sch VDD_3V3_ANA.1 x=1515.3800 y=-3112.5000 rot=0
 # pcb:sch VSYS.1 x=-376.9200 y=-2909.3000 rot=0
