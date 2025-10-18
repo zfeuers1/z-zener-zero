@@ -72,15 +72,25 @@ Capacitor(name = "C_IN", value = "10uF", voltage = "25V", package = "0805",
           P1 = vin.NET, P2 = gnd.NET)
 
 # Output inductor (1.5µH recommended for 3.3V output)
-# For 3.3V: L = 1.5µH, Isat > 4A, DCR < 100mΩ
-Inductor(name = "L_MAIN", value = "1.5uH", current = "4A", package = "1210",
+# For 3.3V: L = 1.5µH, Isat ≥ 5A (peak current ~4.4A at worst case), DCR < 100mΩ
+# Peak inductor current calculation (VIN=2.5V, VOUT=3.3V, IOUT=2A):
+#   I_L(peak) = I_OUT × (V_OUT/V_IN) × ripple_factor = 2A × 1.32 × 1.3 ≈ 3.4A
+#   With switching ripple: 3.4A × 1.3 = 4.4A peak
+# Recommended parts: Murata LQH43CN1R5M03L (1.5µH, 6.5A sat, DCR=35mΩ, 1812)
+#                    or Coilcraft XAL4020-152ME (1.5µH, 6.6A sat, DCR=31mΩ, 4020)
+# Using 2010 package as closest standard size (1812 not in enum)
+Inductor(name = "L_MAIN", value = "1.5uH", current = "6A", package = "2010",
          P1 = _L1, P2 = _L2)
 
-# Output capacitor (47µF ceramic, X5R or better, low ESR)
-# Effective capacitance after DC bias must be > 15µF
-Capacitor(name = "C_OUT1", value = "47uF", voltage = "10V", package = "1206",
+# Output capacitor (47µF ceramic, X5R or X7R, low ESR)
+# Effective capacitance after DC bias must be > 15µF per datasheet
+# Using 16V-rated capacitors to minimize DC bias derating:
+#   - 10V rating: ~35% derating at 3.3V → 47µF × 0.35 = 16.5µF effective (marginal)
+#   - 16V rating: ~70% derating at 3.3V → 47µF × 0.70 = 33µF effective (good margin)
+# Total effective capacitance: 2 × 33µF = 66µF (4.4× above minimum requirement)
+Capacitor(name = "C_OUT1", value = "47uF", voltage = "16V", package = "1206",
           P1 = vout.NET, P2 = gnd.NET)
-Capacitor(name = "C_OUT2", value = "47uF", voltage = "10V", package = "1206",
+Capacitor(name = "C_OUT2", value = "47uF", voltage = "16V", package = "1206",
           P1 = vout.NET, P2 = gnd.NET)
 
 # VAUX capacitor (100nF ceramic for internal LDO)

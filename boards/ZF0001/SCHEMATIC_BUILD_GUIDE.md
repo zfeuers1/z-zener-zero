@@ -65,8 +65,21 @@ Component: J_BAT
 Part: S2B-PH-K-S (JST-PH 2-pin)
 
 Connections:
-Pin 1 (P1) → Net: VBAT_INPUT
+Pin 1 (P1) → Net: VBAT_UNFUSED (before fuse)
 Pin 2 (P2) → GND
+```
+
+**Battery Overcurrent Protection - F_BAT:**
+```
+Component: F_BAT
+Part: 0Ω resistor footprint (1206) or PPTC fuse
+
+Connections:
+P1 → VBAT_UNFUSED (from battery)
+P2 → VBAT_INPUT (to protection FET)
+
+Recommended PPTC: Littelfuse 0ZCJ0200FF2E (2A hold, 4A trip)
+Note: Can populate with 0Ω resistor if overcurrent protection not needed
 ```
 
 ### 2. Battery Protection - Q_BAT_PROT (DMG2305UX-7)

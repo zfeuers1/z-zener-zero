@@ -37,6 +37,7 @@ TPS63070 = Module("../../modules/TPS63070x.zen")
 MAX17048 = Module("../../modules/MAX17048x.zen")
 MAXM10S = Module("../../modules/MAXM10Sx.zen")
 AnalogMicInput = Module("../../modules/AnalogMicInput.zen")
+BatteryProtectionSwitch = Module("../../modules/BatteryProtectionSwitch.zen")
 UsbC = Module("@registry/modules/usb/UsbC.zen")
 
 # Generic components
@@ -47,10 +48,7 @@ Inductor = Module("@stdlib/generics/Inductor.zen")
 
 # Specific components
 MicroSDSocket = Module("//components/MSD-12-A/MSD-12-A.zen")
-SlideSwitch = Module("//components/CSS-1210TB/CSS-1210TB.zen")
-JstBatteryConn = Module("//components/S2B-PH-K-S/S2B-PH-K-S.zen")
 TactileButton = Module("@registry/common/button.zen").SKRKAHE020
-PMosfet = Module("@registry/components/DMG2305UX-7/DMG2305UX-7.zen")
 
 # ========================================
 # Power Rails
@@ -78,8 +76,6 @@ chg_stat = Gpio("CHG_STAT")
 pg_stat = Gpio("PG_STAT")
 fg_alert = Gpio("FG_ALERT")
 sd_detect = Gpio("SD_DETECT")
-buckboost_en = Gpio("BUCKBOOST_EN")
-buckboost_pg = Gpio("BUCKBOOST_PG")
 gnss_reset = Gpio("GNSS_RESET")
 gnss_pps = Gpio("GNSS_PPS")
 
@@ -101,69 +97,25 @@ UsbC(
 )
 
 # ========================================
-# Battery Connector
+# Battery Protection and Power Switch
 # ========================================
-# JST PH 2-pin connector for Li-Ion battery
-_VBAT_INPUT = Net("VBAT_INPUT")  # Battery input before protection
-
-JstBatteryConn(
-    name = "J_BAT",
-    P1 = _VBAT_INPUT,    # Battery positive (before protection)
-    P2 = GND.NET,        # Battery negative/ground
+# Complete battery protection circuit with:
+# - JST PH-2 connector for Li-Ion battery
+# - Optional PPTC fuse for overcurrent protection (using 0Ω jumper)
+# - P-FET reverse polarity protection via body diode (VBAT_RAW output, always-on)
+# - Mechanical slide switch with P-FET high-side switching (VBAT_SWITCHED output)
+BatteryProtectionSwitch(
+    name = "BAT_PROTECT",
+    vbat_in = Power("VBAT_IN_DUMMY"),  # Internal to module (connector included)
+    vbat_raw = VBAT_RAW,                # Always-on protected battery (for voltage dividers)
+    vbat_switched = VBAT_SWITCHED,      # Switched output (to charger)
+    gnd = GND,
+    config_fuse_type = "ZERO_OHM",     # Use 0Ω jumper (can change to "PPTC" if needed)
+    config_include_connector = True,    # Include JST connector
     properties = {
         "collapse": True
     }
 )
-
-# ========================================
-# Battery Reverse Polarity Protection
-# ========================================
-# P-FET with gate pulled to GND for proper conduction
-# Body diode provides reverse polarity protection
-PMosfet(
-    name = "Q_BAT_PROT",
-    S = _VBAT_INPUT,        # Source from battery connector
-    D = VBAT_RAW.NET,       # Drain to system (protected output)
-    G = GND.NET,            # Gate to GND (Vgs = -3.7V for full conduction)
-)
-
-# Operation:
-# - Normal polarity: Vgs = -VBAT (typically -3.7V), MOSFET fully on, Rds_on ~70mΩ
-# - Reverse polarity: Body diode blocks reverse current, protects entire circuit
-# - Gate connected to GND ensures Vgs is sufficiently negative for full enhancement
-
-# ========================================
-# Power Switch (High-Side P-FET on Battery)
-# ========================================
-# Slide switch controls P-FET gate for power on/off
-# P-FET switches battery voltage to charger input
-# When switch connects gate to GND, P-FET conducts (ON)
-# When switch connects gate to VBAT_RAW, P-FET is off (OFF)
-
-_sw_gate = Net("SW_GATE")
-
-SlideSwitch(
-    name = "SW_PWR",
-    P1 = GND.NET,              # Switch position 1 to GND (on)
-    P2 = _sw_gate,             # Common to gate control
-    P3 = VBAT_RAW.NET,         # Switch position 2 to VBAT_RAW (off)
-    MH1 = GND.NET,  # Mounting hole
-    MH2 = GND.NET,  # Mounting hole
-)
-
-# P-FET for high-side switching (DMG2305UX-7)
-# Switches battery to charger input
-PMosfet(
-    name = "Q_PWR",
-    S = VBAT_RAW.NET,          # Source from protected battery
-    D = VBAT_SWITCHED.NET,     # Drain to charger battery input
-    G = _sw_gate,              # Gate controlled by slide switch
-)
-
-# Gate pull-up resistor for off state (when switch is open)
-# Pulls gate to source voltage to keep MOSFET off
-Resistor(name = "R_GATE_PU", value = "100kohm 5%", package = "0402",
-         P1 = VBAT_RAW.NET, P2 = _sw_gate)
 
 # ========================================
 # Battery Charger (BQ24075)
@@ -186,48 +138,12 @@ BQ24075(
 # 3.3V Buck-Boost Converter (TPS63070)
 # ========================================
 # Buck-boost powered from VSYS (supports full battery voltage range 2.5V-5V)
+# EN and PG pins handled internally by module (always-on configuration)
 TPS63070(
     name = "U_BUCKBOOST",
     vin = VSYS,
     vout = VDD_3V3,
     gnd = GND,
-    en = buckboost_en,  # Enable control
-    pg = buckboost_pg,  # Power good output
-    properties = {
-        "collapse": True
-    }
-)
-
-# Buck-boost enable pull-up for default-on operation
-Resistor(name = "R_BUCKBOOST_EN", value = "100kohm 5%", package = "0402",
-         P1 = VSYS.NET, P2 = buckboost_en)
-
-# ========================================
-# I2C Bus Configuration
-# ========================================
-i2c_main = I2c("I2C_MAIN")
-
-# I2C pull-up resistors (REQUIRED for open-drain bus)
-# Pulled to VDD_3V3 to ensure GPIO input voltage stays within spec (VDD+0.3V max)
-Resistor(name = "R_I2C_SDA", value = "4.7kohm 5%", package = "0402",
-         P1 = i2c_main.SDA, P2 = VDD_3V3.NET)
-Resistor(name = "R_I2C_SCL", value = "4.7kohm 5%", package = "0402",
-         P1 = i2c_main.SCL, P2 = VDD_3V3.NET)
-
-# ========================================
-# Fuel Gauge (MAX17048)
-# ========================================
-# TRADE-OFF: VCC powered from VDD_3V3 (not VBAT_RAW) to match I2C pull-up domain
-# This means fuel gauge loses learned capacity when power switch is OFF
-# Alternative would violate ESP32 GPIO max voltage spec (VDD+0.3V = 3.6V < 4.2V VBAT)
-# Fuel gauge re-learns capacity over ~5 charge/discharge cycles
-MAX17048(
-    name = "U_FUELGAUGE",
-    vcc = VDD_3V3,  # Matches I2C pull-up domain (safe for ESP32 GPIOs)
-    vbat = VBAT_RAW,  # Monitor battery voltage on CELL pin
-    gnd = GND,
-    i2c = i2c_main,
-    alert = fg_alert,
     properties = {
         "collapse": True
     }
@@ -238,6 +154,7 @@ MAX17048(
 # ========================================
 uart_gnss = Uart("UART_GNSS")
 spi_sd = Spi("SPI_SD")
+i2c_main = I2c("I2C_MAIN")
 
 ESP32S3WROOM1(
     name = "U_MCU",
@@ -260,8 +177,8 @@ ESP32S3WROOM1(
     gpio12 = Gpio(NET = spi_sd.CLK),  # SD card clock
     gpio13 = Gpio(NET = spi_sd.MISO), # SD card MISO
     gpio14 = sd_detect,       # SD card detect
-    gpio15 = Gpio(NET = uart_gnss.TX),    # ESP32 TX → GNSS RX (FIXED)
-    gpio16 = Gpio(NET = uart_gnss.RX),    # ESP32 RX ← GNSS TX (FIXED)
+    gpio15 = Gpio(NET = uart_gnss.RX),    # ESP32 GPIO15 TX → GNSS RXD (receives from ESP32)
+    gpio16 = Gpio(NET = uart_gnss.TX),    # ESP32 GPIO16 RX ← GNSS TXD (transmits to ESP32)
     # I2C for fuel gauge
     gpio21 = Gpio(NET = i2c_main.SDA),
     gpio47 = Gpio(NET = i2c_main.SCL),
@@ -296,17 +213,79 @@ TactileButton(
 )
 
 # ========================================
+# I2C Bus Configuration
+# ========================================
+# I2C pull-up resistors (REQUIRED for open-drain bus)
+# Using 10kΩ for single device (MAX17048) to reduce power consumption
+# Continuous current draw: 3.3V/10k = 0.33mA (vs 0.7mA with 4.7k) = saves 0.37mA
+# Over 18hr idle: saves ~6.7mAh (~0.4% battery capacity)
+# Pull-ups to VDD_3V3 to ensure GPIO input voltage stays within spec (VDD+0.3V max)
+#
+# I2C CLOCK SPEED SPECIFICATION:
+# - 10kΩ pull-ups with ~15pF bus capacitance → t_rise = 330ns
+# - Standard mode (100kHz): Fully compliant (t_rise < 1000ns required) ✓
+# - Fast mode (400kHz): Marginal (t_rise < 300ns required, actual 330ns)
+# RECOMMENDED: Use 100kHz I2C clock in firmware for reliable operation
+# For 400kHz: Reduce pull-ups to 4.7kΩ (t_rise = 155ns, increases power by 0.37mA)
+Resistor(name = "R_I2C_SDA", value = "10kohm 5%", package = "0402",
+         P1 = i2c_main.SDA, P2 = VDD_3V3.NET)
+Resistor(name = "R_I2C_SCL", value = "10kohm 5%", package = "0402",
+         P1 = i2c_main.SCL, P2 = VDD_3V3.NET)
+
+# ========================================
+# Fuel Gauge (MAX17048)
+# ========================================
+# MAX17048 VCC powered from VBAT_RAW via voltage divider to maintain state when power is OFF
+# Voltage divider: 100kΩ + 180kΩ creates 2.7V from 4.2V battery (safe for 3.6V max spec)
+# I2C pins are 3.6V tolerant per datasheet, so pull-ups to VDD_3V3 are safe
+# This preserves learned capacity across power cycles for accurate fuel gauging
+
+_FG_VCC = Net("FG_VCC")  # Divided voltage for fuel gauge VCC
+
+# Voltage divider: VBAT_RAW → 100kΩ → FG_VCC → 180kΩ → GND
+# V_FG = VBAT × (180k / (100k + 180k)) = 4.2V × 0.643 = 2.7V
+Resistor(name = "R_FG_DIV_TOP", value = "100kohm 5%", package = "0402",
+         P1 = VBAT_RAW.NET, P2 = _FG_VCC)
+Resistor(name = "R_FG_DIV_BOT", value = "180kohm 5%", package = "0402",
+         P1 = _FG_VCC, P2 = GND.NET)
+Capacitor(name = "C_FG_VCC", value = "1uF", voltage = "10V", package = "0402",
+          P1 = _FG_VCC, P2 = GND.NET)
+
+MAX17048(
+    name = "U_FUELGAUGE",
+    vcc = Power(NET = _FG_VCC),  # Powered from divided VBAT_RAW (always-on)
+    vbat = VBAT_RAW,  # Monitor battery voltage on CELL pin
+    gnd = GND,
+    i2c = i2c_main,
+    alert = fg_alert,
+    properties = {
+        "collapse": True
+    }
+)
+
+# ========================================
 # GNSS Module (MAX-M10S)
 # ========================================
+# V_BCKP voltage divider for hot start capability
+# VBAT_RAW (4.2V max) exceeds V_BCKP spec (3.6V max), so use voltage divider
+# Voltage divider: 100kΩ + 180kΩ creates 2.7V from 4.2V battery
+# This maintains GNSS RTC and BBR memory for hot start (~1-2s TTFF instead of 30s cold start)
+
+_GNSS_VBCKP = Net("GNSS_VBCKP")  # Divided voltage for GNSS backup
+
+# Voltage divider: VBAT_RAW → 100kΩ → GNSS_VBCKP → 180kΩ → GND
+Resistor(name = "R_GNSS_BCKP_TOP", value = "100kohm 5%", package = "0402",
+         P1 = VBAT_RAW.NET, P2 = _GNSS_VBCKP)
+Resistor(name = "R_GNSS_BCKP_BOT", value = "180kohm 5%", package = "0402",
+         P1 = _GNSS_VBCKP, P2 = GND.NET)
+
 MAXM10S(
     name = "U_GNSS",
     vcc = VDD_3V3,
     gnd = GND,
     uart = uart_gnss,
     rf_in = Net("GNSS_RF_IN"),  # RF input from u.FL connector (defined in module)
-    # v_bckp intentionally disconnected - VBAT_RAW (4.2V max) exceeds V_BCKP spec (3.6V max)
-    # GNSS will cold start each time (~30s TTFF) but prevents potential module damage
-    # To enable: add voltage divider: VBAT_RAW → 100k → V_BCKP → 180k → GND (outputs 2.7V)
+    v_bckp = Power(NET = _GNSS_VBCKP),  # Backup voltage for hot start capability
     reset_n = gnss_reset,
     timepulse = gnss_pps,
     properties = {
@@ -316,32 +295,6 @@ MAXM10S(
 
 # GNSS antenna connection (u.FL connector already in MAXM10Sx module)
 # External active antenna will be connected to the u.FL connector
-
-# ========================================
-# Analog Power Filtering
-# ========================================
-# Ferrite bead filter to isolate analog circuits from digital switching noise
-# This prevents buck-boost switching noise and WiFi noise from coupling into audio
-# Using ~10uH ferrite bead with 600ohm@100MHz impedance, 500mA rating
-Inductor(name = "FB_ANA", value = "10uH", current = "500mA", package = "0805",
-         P1 = VDD_3V3.NET, P2 = VDD_3V3_ANA.NET)
-
-# Filter capacitor for analog rail
-Capacitor(name = "C_ANA_FILT", value = "10uF", voltage = "10V", package = "0805",
-          P1 = VDD_3V3_ANA.NET, P2 = GND.NET)
-
-# ========================================
-# Analog Microphone Input
-# ========================================
-AnalogMicInput(
-    name = "MIC",
-    vdd_3v3 = VDD_3V3_ANA,  # Use filtered analog rail
-    gnd = GND,
-    mic_out = Analog(NET = mic_in),
-    properties = {
-        "collapse": True
-    }
-)
 
 # ========================================
 # MicroSD Card Socket
@@ -377,13 +330,44 @@ MicroSDSocket(
 # SD card pull-ups
 Resistor(name = "R_SD_CS", value = "10kohm 5%", package = "0402", 
          P1 = spi_sd.CS, P2 = VDD_3V3.NET)
-Resistor(name = "R_SD_DAT1", value = "47kohm 5%", package = "0402",
+# Unused data lines pulled up to prevent floating (10kΩ per SD spec recommendation)
+Resistor(name = "R_SD_DAT1", value = "10kohm 5%", package = "0402",
          P1 = _sd_dat1, P2 = VDD_3V3.NET)
-Resistor(name = "R_SD_DAT2", value = "47kohm 5%", package = "0402",
+Resistor(name = "R_SD_DAT2", value = "10kohm 5%", package = "0402",
          P1 = _sd_dat2, P2 = VDD_3V3.NET)
 # Card detect pull-up (CD switch pulls to GND when card inserted)
-Resistor(name = "R_SD_DETECT", value = "47kohm 5%", package = "0402",
+Resistor(name = "R_SD_DETECT", value = "10kohm 5%", package = "0402",
          P1 = sd_detect, P2 = VDD_3V3.NET)
+
+# ========================================
+# Analog Power Filtering
+# ========================================
+# Ferrite bead filter to isolate analog circuits from digital switching noise
+# This prevents buck-boost switching noise and WiFi noise from coupling into audio
+# Ferrite bead spec: 600Ω@100MHz impedance, <0.3Ω DC resistance, 500mA rating
+# Recommended part: Murata BLM21PG601SN1D (600Ω@100MHz) or similar
+# Note: Value represents approximate DC inductance; actual filtering is via AC impedance
+Inductor(name = "FB_ANA", value = "1uH", current = "500mA", package = "0805",
+         P1 = VDD_3V3.NET, P2 = VDD_3V3_ANA.NET)
+
+# Filter capacitors for analog rail (dual-stage filtering)
+Capacitor(name = "C_ANA_FILT1", value = "10uF", voltage = "10V", package = "0805",
+          P1 = VDD_3V3_ANA.NET, P2 = GND.NET)
+Capacitor(name = "C_ANA_FILT2", value = "100nF", voltage = "10V", package = "0402",
+          P1 = VDD_3V3_ANA.NET, P2 = GND.NET)
+
+# ========================================
+# Analog Microphone Input
+# ========================================
+AnalogMicInput(
+    name = "MIC",
+    vdd_3v3 = VDD_3V3_ANA,  # Use filtered analog rail
+    gnd = GND,
+    mic_out = Analog(NET = mic_in),
+    properties = {
+        "collapse": True
+    }
+)
 
 # ========================================
 # User Interface
@@ -404,23 +388,24 @@ TactileButton(
 )
 
 # RGB LED (common-cathode configuration)
-# Red LED: GPIO → R → A, K → GND
+# Current-balanced for accurate color mixing (~8mA per LED)
+# Red LED: Vf~2.0V, I=8.7mA with 150Ω
 _led_r_anode = Net("LED_R_ANODE")
 Resistor(name = "R_LED_R", value = "150ohm 5%", package = "0402",
          P1 = led_r, P2 = _led_r_anode)
 Led(name = "LED_R", color = "red", package = "0603",
     A = _led_r_anode, K = GND)
 
-# Green LED (higher Vf, smaller resistor)
+# Green LED: Vf~3.0V, I=7.7mA with 39Ω (balanced with blue)
 _led_g_anode = Net("LED_G_ANODE")
-Resistor(name = "R_LED_G", value = "47ohm 5%", package = "0402",
+Resistor(name = "R_LED_G", value = "39ohm 5%", package = "0402",
          P1 = led_g, P2 = _led_g_anode)
 Led(name = "LED_G", color = "green", package = "0603",
     A = _led_g_anode, K = GND)
 
-# Blue LED
+# Blue LED: Vf~3.0V, I=7.7mA with 39Ω (balanced with green)
 _led_b_anode = Net("LED_B_ANODE")
-Resistor(name = "R_LED_B", value = "47ohm 5%", package = "0402",
+Resistor(name = "R_LED_B", value = "39ohm 5%", package = "0402",
          P1 = led_b, P2 = _led_b_anode)
 Led(name = "LED_B", color = "blue", package = "0603",
     A = _led_b_anode, K = GND)
@@ -451,9 +436,22 @@ TestPoint = Module("@stdlib/generics/TestPoint.zen")
 TestPoint(name = "TP_VBAT", variant = "Pad_D1.0mm", P1 = VBAT_RAW.NET)
 TestPoint(name = "TP_VSYS", variant = "Pad_D1.0mm", P1 = VSYS.NET)
 TestPoint(name = "TP_3V3", variant = "Pad_D1.0mm", P1 = VDD_3V3.NET)
+TestPoint(name = "TP_3V3_ANA", variant = "Pad_D1.0mm", P1 = VDD_3V3_ANA.NET)
+TestPoint(name = "TP_MIC_IN", variant = "Pad_D1.0mm", P1 = mic_in)
 TestPoint(name = "TP_I2C_SDA", variant = "Pad_D1.0mm", P1 = i2c_main.SDA)
 TestPoint(name = "TP_I2C_SCL", variant = "Pad_D1.0mm", P1 = i2c_main.SCL)
 TestPoint(name = "TP_GND", variant = "Pad_D1.0mm", P1 = GND.NET)
+
+# ========================================
+# Mounting Holes
+# ========================================
+# 4× M2.5 mounting holes for mechanical attachment to enclosure
+# Place at corners with minimum 3mm edge distance
+MountingHole = Module("@stdlib/generics/MountingHole.zen")
+MountingHole(name = "MH1", diameter = "M2.5", P1 = GND.NET)
+MountingHole(name = "MH2", diameter = "M2.5", P1 = GND.NET)
+MountingHole(name = "MH3", diameter = "M2.5", P1 = GND.NET)
+MountingHole(name = "MH4", diameter = "M2.5", P1 = GND.NET)
 
 # pcb:sch C_ANA_FILT.C x=2086.8800 y=-2756.9000 rot=0
 # pcb:sch C_BULK_3V3.C x=-1405.6200 y=-2236.2000 rot=0

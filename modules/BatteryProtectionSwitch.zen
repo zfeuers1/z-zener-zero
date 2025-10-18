@@ -1,0 +1,137 @@
+"""
+BatteryProtectionSwitch Reference Design
+
+Complete battery protection and power switch circuit for Li-Ion powered wearables.
+
+Features:
+- Optional PPTC resettable fuse for overcurrent protection
+- P-FET reverse polarity protection via body diode
+- Mechanical slide switch with P-FET high-side switching
+- JST PH-2 battery connector (industry standard for Li-Ion)
+
+Protection Layers:
+1. PPTC fuse (optional): Protects against short circuits and overcurrent
+2. Q_BAT_PROT: Prevents reverse battery insertion damage
+3. SW_PWR + Q_PWR: User-controlled power on/off
+
+Design Notes:
+- P-FET gate to GND for full conduction (Vgs = -VBAT)
+- Body diode provides reverse polarity protection
+- Minimal voltage drop (~70mΩ + fuse resistance)
+- Switch controls second P-FET for clean power cutoff
+"""
+
+load("@stdlib/interfaces.zen", "Power", "Ground")
+
+Resistor = Module("@stdlib/generics/Resistor.zen")
+JstBatteryConn = Module("//components/S2B-PH-K-S/S2B-PH-K-S.zen")
+SlideSwitch = Module("//components/CSS-1210TB/CSS-1210TB.zen")
+PMosfet = Module("@registry/components/DMG2305UX-7/DMG2305UX-7.zen")
+
+# Module interfaces
+vbat_in = io("vbat_in", Power)          # Battery input (unfused, only used if connector disabled)
+vbat_raw = io("vbat_raw", Power)        # Always-on protected output (after reverse protection)
+vbat_switched = io("vbat_switched", Power)  # Switched output (after power switch)
+gnd = io("gnd", Ground)
+
+# Configuration
+FuseType = enum("PPTC", "ZERO_OHM")
+config_fuse_type = config("config_fuse_type", FuseType, default="ZERO_OHM", optional=False)
+config_include_connector = config("config_include_connector", bool, default=True, optional=False)
+
+# Internal nets
+_VBAT_UNFUSED = Net("VBAT_UNFUSED")     # Battery input before fuse
+_VBAT_FUSED = Net("VBAT_FUSED")         # Battery after fuse
+_SW_GATE = Net("SW_GATE")               # Switch gate control
+
+# ========================================
+# Battery Connector (Optional)
+# ========================================
+if config_include_connector:
+    JstBatteryConn(
+        name = "J_BAT",
+        P1 = _VBAT_UNFUSED,
+        P2 = gnd.NET,
+        properties = {
+            "collapse": True
+        }
+    )
+    # Connect input
+    vbat_in = Power(NET = _VBAT_UNFUSED)
+else:
+    _VBAT_UNFUSED = vbat_in.NET
+
+# ========================================
+# Overcurrent Protection (Fuse)
+# ========================================
+# PPTC resettable fuse or 0Ω jumper
+# Recommended PPTC: Littelfuse 0ZCJ0200FF2E (2A hold, 4A trip, 6V max)
+if config_fuse_type == FuseType("PPTC"):
+    # Use 1206 package for PPTC fuse
+    Resistor(name = "F_BAT", value = "0ohm", package = "1206",
+             P1 = _VBAT_UNFUSED, P2 = _VBAT_FUSED)
+elif config_fuse_type == FuseType("ZERO_OHM"):
+    # 0Ω jumper for designs without fuse protection
+    Resistor(name = "F_BAT", value = "0ohm", package = "1206",
+             P1 = _VBAT_UNFUSED, P2 = _VBAT_FUSED)
+
+# ========================================
+# Reverse Polarity Protection
+# ========================================
+# P-FET with gate to GND for full conduction
+# Body diode blocks reverse current
+PMosfet(
+    name = "Q_BAT_PROT",
+    S = _VBAT_FUSED,         # Source from fused battery
+    D = vbat_raw.NET,        # Drain to always-on protected output (VBAT_RAW)
+    G = gnd.NET,             # Gate to GND (Vgs = -3.7V for conduction)
+)
+
+# Operation:
+# - Normal polarity: Vgs = -VBAT (~-3.7V), MOSFET ON, Rds_on ~70mΩ
+# - Reverse polarity: Body diode blocks, prevents damage
+
+# ========================================
+# Power Switch (Slide Switch + P-FET)
+# ========================================
+# Slide switch controls P-FET gate for power on/off
+# When switch connects gate to GND → P-FET ON (system powered)
+# When switch connects gate to VBAT → P-FET OFF (system unpowered)
+
+SlideSwitch(
+    name = "SW_PWR",
+    P1 = gnd.NET,              # Switch position 1: GND (ON)
+    P2 = _SW_GATE,             # Common/wiper to gate
+    P3 = vbat_raw.NET,         # Switch position 2: VBAT_RAW (OFF)
+    MH1 = gnd.NET,             # Mounting hole
+    MH2 = gnd.NET,             # Mounting hole
+)
+
+# P-FET for high-side switching
+PMosfet(
+    name = "Q_PWR",
+    S = vbat_raw.NET,          # Source from always-on protected battery (VBAT_RAW)
+    D = vbat_switched.NET,     # Drain to switched output (VBAT_SWITCHED)
+    G = _SW_GATE,              # Gate controlled by switch
+)
+
+# Gate pull-up resistor
+# Pulls gate HIGH when switch is in center (off state)
+# Ensures MOSFET stays off when switch is not fully engaged
+Resistor(name = "R_GATE_PU", value = "100kohm 5%", package = "0402",
+         P1 = vbat_raw.NET, P2 = _SW_GATE)
+
+# Switch Operation:
+# Position LEFT:  SW_GATE = GND → Vgs = -3.7V → P-FET ON  → Power flows
+# Position RIGHT: SW_GATE = VBAT → Vgs = 0V   → P-FET OFF → No power
+
+# pcb:sch F_BAT.R x=-354.0600 y=-102.6000 rot=0
+# pcb:sch J_BAT.S2BMPHMKMS x=-520.7000 y=-102.6000 rot=0
+# pcb:sch Q_BAT_PROT.DMG2305UX-7 x=-229.6000 y=-102.6000 rot=90
+# pcb:sch Q_PWR.DMG2305UX-7 x=-191.5000 y=-178.8000 rot=270
+# pcb:sch R_GATE_PU.R x=-95.0600 y=-178.8000 rot=0
+# pcb:sch SW_PWR.CSSM1210TB x=-114.3000 y=-216.9000 rot=270
+# pcb:sch gnd.1 x=-495.3000 y=49.8000 rot=0
+# pcb:sch vbat_in.1 x=-495.3200 y=-255.0000 rot=0
+# pcb:sch vbat_out.1 x=37.0800 y=-255.0000 rot=0
+

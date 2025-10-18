@@ -27,6 +27,7 @@ PINS = {
     # I2C (Fuel Gauge)
     'I2C_SDA': 21,          # GPIO21
     'I2C_SCL': 47,          # GPIO47
+    'I2C_FREQ': 100000,     # 100kHz (recommended for 10kΩ pull-ups)
     
     # LEDs
     'LED_RED': 4,           # GPIO4

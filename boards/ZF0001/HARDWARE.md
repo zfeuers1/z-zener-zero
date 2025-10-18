@@ -179,12 +179,12 @@ flowchart LR
 
 ## Critical Design Notes
 
-### 1. I2C Voltage Levels (CRITICAL!)
-- **I2C pull-ups to VDD_3V3 (3.3V)** - NOT VBAT_RAW!
+### 1. I2C Voltage Levels
+- **I2C pull-ups to VDD_3V3 (3.3V)** - 10kΩ for low power consumption
 - ESP32-S3 GPIO max input: VDD + 0.3V = 3.6V
-- VBAT_RAW can be 4.2V (exceeds spec)
-- Fuel gauge VCC also on VDD_3V3 to match I2C domain
-- **Trade-off:** Fuel gauge loses memory when power OFF, but GPIOs are safe
+- Fuel gauge VCC powered from VBAT_RAW via voltage divider (100k/180k = 2.7V)
+- **Benefit:** Fuel gauge maintains learned capacity across power cycles for accurate SOC readings
+- I2C pins are 3.6V tolerant, so pull-ups to VDD_3V3 are safe
 
 ### 2. Buck-Boost Converter
 - TPS63070 works from 2.0-16V input
@@ -192,6 +192,7 @@ flowchart LR
 - Better than buck converter (TPS62933 needs 3.8V minimum)
 
 ### 3. Battery Protection
+- PPTC fuse footprint for overcurrent protection (can use 0Ω if not needed)
 - Q_BAT_PROT gate to GND (Vgs = -3.7V for full conduction)
 - Reverse polarity protection via body diode
 - Minimal voltage drop (~70mΩ)
@@ -200,6 +201,18 @@ flowchart LR
 - Switches battery to charger input (not output)
 - Cleaner power control
 - Prevents charger interaction when OFF
+
+### 5. GNSS Hot Start Capability
+- V_BCKP powered from VBAT_RAW via voltage divider (100k/180k = 2.7V)
+- Maintains GNSS RTC and BBR memory when device is OFF
+- **Benefit:** Hot start in 1-2 seconds instead of 30 second cold start
+- Enables fast GPS acquisition for better user experience
+
+### 6. RGB LED Current Balancing
+- Red: 150Ω → 8.7mA
+- Green: 39Ω → 7.7mA
+- Blue: 39Ω → 7.7mA
+- Balanced for accurate color mixing
 
 ---
 
@@ -228,14 +241,24 @@ flowchart LR
 
 ## Test Points
 
-| TP | Net | Expected Voltage |
-|----|-----|------------------|
-| TP_VBAT | VBAT_RAW | 3.0-4.2V |
-| TP_VSYS | VSYS | 3.7-5V |
-| TP_3V3 | VDD_3V3 | 3.3V |
-| TP_I2C_SDA | I2C SDA | 3.3V (when idle high) |
-| TP_I2C_SCL | I2C SCL | 3.3V (when idle high) |
-| TP_GND | GND | 0V |
+| TP | Net | Expected Voltage | Purpose |
+|----|-----|------------------|---------|
+| TP_VBAT | VBAT_RAW | 3.0-4.2V | Battery voltage |
+| TP_VSYS | VSYS | 3.7-5V | Charger output |
+| TP_3V3 | VDD_3V3 | 3.3V | Main rail |
+| TP_3V3_ANA | VDD_3V3_ANA | 3.3V | Filtered analog rail |
+| TP_MIC_IN | GPIO1 | 0-2.45V AC | Microphone signal |
+| TP_I2C_SDA | I2C SDA | 3.3V (when idle) | I2C data |
+| TP_I2C_SCL | I2C SCL | 3.3V (when idle) | I2C clock |
+| TP_GND | GND | 0V | Ground reference |
+
+## Mounting Holes
+
+| Hole | Type | Purpose |
+|------|------|---------|
+| MH1-MH4 | M2.5 | Mechanical attachment to enclosure |
+
+**Note:** Place mounting holes at corners with minimum 3mm edge distance
 
 ---
 

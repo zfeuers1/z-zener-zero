@@ -107,7 +107,9 @@ Resistor(name = "R_GAIN2", value = "1kohm 1%", package = "0402", P1 = _OPAMP_NEG
 Capacitor(name = "C_OUT", value = "1uF", voltage = "10V", package = "0402", P1 = _OPAMP_OUT, P2 = mic_out.NET)
 
 # ADC input pull-down to establish 0V DC level
-Resistor(name = "R_OUT", value = "10kohm 5%", package = "0402", P1 = mic_out.NET, P2 = gnd.NET)
+# Using 1kΩ instead of 10kΩ to minimize voltage divider effect with ESP32 ADC input impedance (~45kΩ)
+# This preserves signal amplitude: V_ADC = V_OPAMP × (45k/(45k+1k)) = 0.98 × V_OPAMP (only 2% loss)
+Resistor(name = "R_OUT", value = "1kohm 5%", package = "0402", P1 = mic_out.NET, P2 = gnd.NET)
 
 # Notes:
 # - Gain of 20 brings 10-100mV mic signal to 200mV-2V (optimal for 12-bit ADC)
