@@ -90,8 +90,8 @@ ESP32_S3_WROOM(
     TXD0 = uart0_tx.NET if uart0_tx else Net("TXD0_NC"),
     RXD0 = uart0_rx.NET if uart0_rx else Net("RXD0_NC"),
     # USB (IO19=D-, IO20=D+)
-    IO19 = usb.DM,
-    IO20 = usb.DP,
+    IO19 = usb.D.N,
+    IO20 = usb.D.P,
     # General GPIOs
     IO1 = gpio1.NET if gpio1 else Net("GPIO1_NC"),
     IO2 = gpio2.NET if gpio2 else Net("GPIO2_NC"),

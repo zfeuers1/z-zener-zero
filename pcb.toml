@@ -2,7 +2,7 @@
 name = "zachary-feuerstein"
 
 [packages]
-stdlib = "@github/diodeinc/stdlib:v0.2.24"
+stdlib = "@github/diodeinc/stdlib"
 registry = "@github/diodeinc/registry"
 
 [access]
